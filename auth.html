@@ -1,0 +1,121 @@
+<!doctype html>
+<html lang="ru">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Авторизация</title>
+    <style>
+      :root {
+        --bg: #ffffff;
+        --card: #d9d9d9;
+        --stroke: #2b2b2b;
+        --field: #d9d9d9;
+        --btn: #d9d9d9;
+        --btn-primary: #ffffff;
+        --text: #111111;
+        --radius-card: 20px;
+        --radius-pill: 999px;
+      }
+
+      * { box-sizing: border-box; }
+
+      body {
+        margin: 0;
+        min-height: 100vh;
+        display: grid;
+        place-items: center;
+        background: var(--bg);
+        font-family: system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif;
+        color: var(--text);
+      }
+
+      .card {
+        width: min(520px, calc(100vw - 48px));
+        padding: 56px 64px 52px;
+        background: var(--card);
+        border: 2px solid var(--stroke);
+        border-radius: var(--radius-card);
+      }
+
+      h1 {
+        margin: 0 0 36px;
+        text-align: center;
+        font-size: 34px;
+        font-weight: 700;
+        letter-spacing: 0.2px;
+      }
+
+      .stack {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        gap: 16px;
+      }
+
+      .field,
+      .btn {
+        width: min(340px, 100%);
+        height: 52px;
+        border-radius: var(--radius-pill);
+        border: 2px solid rgba(43, 43, 43, 0.85);
+        background: var(--field);
+      }
+
+      .field {
+        padding: 0 22px;
+        outline: none;
+        font-size: 18px;
+      }
+
+      .field::placeholder {
+        color: rgba(17, 17, 17, 0.75);
+      }
+
+      .spacer {
+        height: 22px; /* отступ как на макете между инпутами и кнопками */
+      }
+
+      .btn {
+        cursor: pointer;
+        font-size: 18px;
+        font-weight: 500;
+        background: var(--btn);
+      }
+
+      .btn.primary {
+        background: var(--btn-primary);
+      }
+
+      .btn:active {
+        transform: translateY(1px);
+      }
+
+      .btn:focus-visible,
+      .field:focus-visible {
+        outline: 3px solid rgba(0, 0, 0, 0.18);
+        outline-offset: 2px;
+      }
+
+      @media (max-width: 520px) {
+        .card { padding: 44px 24px 40px; }
+        h1 { font-size: 30px; margin-bottom: 28px; }
+      }
+    </style>
+  </head>
+
+  <body>
+    <main class="card" role="main" aria-label="Форма авторизации">
+      <h1>Авторизация</h1>
+
+      <form class="stack" autocomplete="on">
+        <input class="field" type="text" name="login" placeholder="Логин" autocomplete="username" />
+        <input class="field" type="password" name="password" placeholder="Пароль" autocomplete="current-password" />
+
+        <div class="spacer" aria-hidden="true"></div>
+
+        <button class="btn primary" type="submit">Вход</button>
+        <button class="btn" type="button">Регистрация</button>
+      </form>
+    </main>
+  </body>
+</html>

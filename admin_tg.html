@@ -1,0 +1,176 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8">
+<title>Users</title>
+
+<style>
+:root {
+  --bg: #ffffff;
+  --panel: #d9d9d9;
+  --line: rgba(0,0,0,.35);
+  --radius: 20px;
+  --pill: 999px;
+  --text: #111;
+  --cols: auto auto auto auto auto; /* будет переопределено JS */
+}
+
+* { box-sizing: border-box; }
+
+body {
+  margin: 0;
+  background: var(--bg);
+  font-family: system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif;
+  color: var(--text);
+}
+
+.page {
+  max-width: 1000px;
+  margin: 40px auto;
+  padding: 0 24px;
+}
+
+/* ---------- TOP BAR ---------- */
+.topbar {
+  display: flex;
+  justify-content: space-around;
+  margin-bottom: 24px;
+}
+
+.tabs { display: flex; gap: 16px; }
+
+.btn {
+  height: 42px;
+  padding: 0 26px;
+  border-radius: var(--pill);
+  background: var(--panel);
+  border: 1.5px solid rgba(0,0,0,.7);
+  font-size: 17px;
+  cursor: pointer;
+}
+
+/* ---------- TABLE PANEL ---------- */
+.panel {
+  background: var(--panel);
+  border-radius: var(--radius);
+  padding: 18px;
+}
+
+/* Общая раскладка строк: ВСЕГДА по шаблону, заданному из шапки */
+.table-row {
+  display: grid;
+  grid-template-columns: var(--cols);
+  align-items: center;
+  height: 48px;
+  padding: 0 12px;
+  border-radius: var(--pill);
+  transition: background .15s ease, box-shadow .15s ease, transform .1s ease;
+}
+
+.table-header {
+  font-weight: 600;
+}
+
+.table-body .table-row:hover {
+  background: #fff;
+  box-shadow: 0 4px 12px rgba(0,0,0,.08);
+  transform: translateY(-1px);
+}
+
+.cell {
+  padding: 0 16px;
+  display: flex;
+  align-items: center;
+  min-width: 0; /* важно для ellipsis внутри grid */
+}
+
+/* ВАЖНО: тело не влияет на ширины колонок */
+.table-body .cell {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* Шапка тоже без переносов — она задаёт "эталон" */
+.table-header .cell {
+  white-space: nowrap;
+}
+
+/* разделители */
+.cell:not(:last-child) {
+  border-right: 2px solid var(--line);
+}
+
+.table-row:hover .cell:not(:last-child) {
+  border-right-color: rgba(0,0,0,.25);
+}
+
+.table-body { margin-top: 8px; }
+</style>
+</head>
+
+<body>
+<div class="page">
+
+  <div class="topbar">
+    <div class="tabs">
+      <button class="btn">Контрагенты</button>
+      <button class="btn">Web пользователи</button>
+    </div>
+    <button class="btn">Выйти</button>
+  </div>
+
+  <div class="panel" id="usersTable">
+
+    <!-- Header -->
+    <div class="table-row table-header" id="tableHeader">
+      <div class="cell">id</div>
+      <div class="cell">tg_username</div>
+      <div class="cell">real_name</div>
+      <div class="cell">id_contacts</div>
+      <div class="cell">id_role</div>
+    </div>
+
+    <!-- Body -->
+    <div class="table-body">
+      <div class="table-row">
+        <div class="cell">12</div>
+        <div class="cell">@alexander</div>
+        <div class="cell">Александр Смирнов</div>
+        <div class="cell">83</div>
+        <div class="cell">admin</div>
+      </div>
+
+      <div class="table-row">
+        <div class="cell">2</div>
+        <div class="cell">@tg</div>
+        <div class="cell">Очень-очень-очень длинное имя которое НЕ должно расширять колонку</div>
+        <div class="cell">7</div>
+        <div class="cell">user</div>
+      </div>
+    </div>
+
+  </div>
+</div>
+
+<script>
+  function applyHeaderColumnWidths() {
+    const table = document.getElementById('usersTable');
+    const header = document.getElementById('tableHeader');
+    if (!table || !header) return;
+
+    const cells = Array.from(header.querySelectorAll('.cell'));
+    if (!cells.length) return;
+
+    // измеряем ширины шапки и фиксируем их для всей таблицы
+    const widths = cells.map((c) => Math.ceil(c.getBoundingClientRect().width));
+    const template = widths.map(w => `${w}px`).join(' ');
+    table.style.setProperty('--cols', template);
+  }
+
+  window.addEventListener('load', applyHeaderColumnWidths);
+  window.addEventListener('resize', applyHeaderColumnWidths);
+</script>
+
+</body>
+</html>
