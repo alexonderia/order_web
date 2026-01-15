@@ -68,7 +68,7 @@ export const RequestsTable = () => {
         <Box
             sx={{
                 backgroundColor: '#d9d9d9',
-                borderRadius: 6,
+                borderRadius: 3,
                 padding: 2,
                 border: '1px solid rgba(0,0,0,0.3)',
                 overflow: 'hidden'

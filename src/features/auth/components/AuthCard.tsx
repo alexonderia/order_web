@@ -1,19 +1,25 @@
 import { Box, Button, Paper, Stack, TextField, Typography } from '@mui/material';
 import { useState } from 'react';
+import type { LoginWebUserPayload } from '@shared/api/loginWebUser';
 import type { RegisterWebUserPayload } from '@shared/api/registerWebUser';
 
 type AuthCardProps = {
     onRegister: (payload: RegisterWebUserPayload) => Promise<void>;
+    onLogin: (payload: LoginWebUserPayload) => Promise<void>;
     isSubmitting: boolean;
     errorMessage?: string | null;
 };
 
-export const AuthCard = ({ onRegister, isSubmitting, errorMessage }: AuthCardProps) => {
+export const AuthCard = ({ onRegister, onLogin, isSubmitting, errorMessage }: AuthCardProps) => {
     const [login, setLogin] = useState('');
     const [password, setPassword] = useState('');
 
     const handleRegister = () => {
         void onRegister({ login, password });
+    };
+
+    const handleLogin = () => {
+        void onLogin({ login, password });
     };
 
     return (
@@ -72,8 +78,10 @@ export const AuthCard = ({ onRegister, isSubmitting, errorMessage }: AuthCardPro
                             color: '#1f1f1f',
                             paddingY: 1.3
                         }}
+                        onClick={handleLogin}
+                        disabled={isSubmitting}
                     >
-                        Вход
+                        {isSubmitting ? 'Вход...' : 'Вход'}
                     </Button>
                     <Button
                         variant="outlined"

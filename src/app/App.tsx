@@ -1,6 +1,8 @@
 import { useState } from 'react';
 import { AuthPage } from '@pages/AuthPage';
 import { RequestsPage } from '@pages/RequestsPage';
+import { loginWebUser } from '@shared/api/loginWebUser';
+import type { LoginWebUserPayload } from '@shared/api/loginWebUser';
 import { registerWebUser } from '@shared/api/registerWebUser';
 import type { RegisterWebUserPayload } from '@shared/api/registerWebUser';
 
@@ -22,10 +24,28 @@ export const App = () => {
     }
   };
 
+  const handleLogin = async (payload: LoginWebUserPayload) => {
+    setIsSubmitting(true);
+    setErrorMessage(null);
+    try {
+      await loginWebUser(payload);
+      setIsAuthenticated(true);
+    } catch (error) {
+      setErrorMessage(error instanceof Error ? error.message : 'Ошибка авторизации');
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
   return isAuthenticated ? (
     <RequestsPage />
   ) : (
-    <AuthPage onRegister={handleRegister} isSubmitting={isSubmitting} errorMessage={errorMessage} />
+    <AuthPage
+      onRegister={handleRegister}
+      onLogin={handleLogin}
+      isSubmitting={isSubmitting}
+      errorMessage={errorMessage}
+    />
   );
 
 };
