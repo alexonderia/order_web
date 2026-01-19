@@ -85,6 +85,7 @@ export const App = () => {
   return isAuthenticated ? (
     activePage === 'requests' ? (
       <RequestsPage
+        userLogin={userLogin ?? ''}
         onCreateRequest={() => {
           setCreateRequestError(null);
           setActivePage('create');

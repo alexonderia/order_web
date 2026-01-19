@@ -1,4 +1,5 @@
 import { Box, Chip, Stack, Typography } from '@mui/material';
+import type { RequestWithOfferStats } from '@shared/api/getRequests';
 
 const columns = [
     'id',
@@ -13,44 +14,6 @@ const columns = [
     'Уведомление'
 ];
 
-const rows = [
-    {
-        id: '1245',
-        description: 'Запрос на поставку',
-        status: 'В работе',
-        proposalUntil: '12.08.2024',
-        opened: '10.08.2024',
-        closed: '-',
-        proposalNumber: 'KP-232',
-        author: 'Иванов И.',
-        updated: '11.08.2024 12:45',
-        notification: 'info'
-    },
-    {
-        id: '1246',
-        description: 'Доп. позиции',
-        status: 'Новое',
-        proposalUntil: '13.08.2024',
-        opened: '11.08.2024',
-        closed: '-',
-        proposalNumber: 'KP-233',
-        author: 'Петров П.',
-        updated: '11.08.2024 14:15',
-        notification: 'success'
-    },
-    {
-        id: '1247',
-        description: 'Повторный запрос',
-        status: 'Закрыта',
-        proposalUntil: '08.08.2024',
-        opened: '01.08.2024',
-        closed: '09.08.2024',
-        proposalNumber: 'KP-229',
-        author: 'Сидоров С.',
-        updated: '09.08.2024 09:10',
-        notification: 'error'
-    }
-];
 
 const gridTemplate = '0.6fr 2fr 1.2fr 1.2fr 1.1fr 1.1fr 1.1fr 1.2fr 1.3fr 1.1fr';
 
@@ -63,7 +26,62 @@ const cellSx = {
     alignItems: 'center'
 };
 
-export const RequestsTable = () => {
+type RequestsTableProps = {
+    requests: RequestWithOfferStats[];
+    isLoading?: boolean;
+};
+
+const formatDate = (value: string | null, withTime = false) => {
+    if (!value) {
+        return '-';
+    }
+
+    const date = new Date(value);
+    if (Number.isNaN(date.getTime())) {
+        return value;
+    }
+
+    const options: Intl.DateTimeFormatOptions = withTime
+        ? {
+            day: '2-digit',
+            month: '2-digit',
+            year: 'numeric',
+            hour: '2-digit',
+            minute: '2-digit'
+        }
+        : {
+            day: '2-digit',
+            month: '2-digit',
+            year: 'numeric'
+        };
+
+    return new Intl.DateTimeFormat('ru-RU', options).format(date);
+};
+
+const NotificationContent = ({ countSubmitted, countDeleted }: { countSubmitted: number; countDeleted: number }) => {
+    if (countSubmitted <= 0 && countDeleted <= 0) {
+        return null;
+    }
+
+    if (countSubmitted > 0 && countDeleted > 0) {
+        return (
+            <Stack direction="row" spacing={1} alignItems="center" flexWrap="wrap">
+                <Chip label={countSubmitted} size="small" sx={{ backgroundColor: '#2e7d32', color: '#fff' }} />
+                <Chip label={countDeleted} size="small" sx={{ backgroundColor: '#c62828', color: '#fff' }} />
+            </Stack>
+        );
+    }
+
+    if (countSubmitted > 0) {
+        const label = countSubmitted === 1 ? 'Новое предложение' : `${countSubmitted} новых предложения`;
+        return <Chip label={label} size="small" sx={{ backgroundColor: '#2e7d32', color: '#fff' }} />;
+    }
+
+    const label = countDeleted === 1 ? 'Отмена сделки' : `${countDeleted} отмены сделки`;
+    return <Chip label={label} size="small" sx={{ backgroundColor: '#c62828', color: '#fff' }} />;
+};
+
+export const RequestsTable = ({ requests, isLoading }: RequestsTableProps) => {
     return (
         <Box
             sx={{
@@ -86,58 +104,55 @@ export const RequestsTable = () => {
                         <Typography variant="body2">{column}</Typography>
                     </Box>
                 ))}
-                {rows.map((row) => (
-                    <Box
-                        key={row.id}
-                        sx={{
-                            display: 'contents'
-                        }}
-                    >
-                        <Box sx={cellSx}>
-                            <Typography variant="body2">{row.id}</Typography>
-                        </Box>
-                        <Box sx={cellSx}>
-                            <Typography variant="body2">{row.description}</Typography>
-                        </Box>
-                        <Box sx={cellSx}>
-                            <Typography variant="body2">{row.status}</Typography>
-                        </Box>
-                        <Box sx={cellSx}>
-                            <Typography variant="body2">{row.proposalUntil}</Typography>
-                        </Box>
-                        <Box sx={cellSx}>
-                            <Typography variant="body2">{row.opened}</Typography>
-                        </Box>
-                        <Box sx={cellSx}>
-                            <Typography variant="body2">{row.closed}</Typography>
-                        </Box>
-                        <Box sx={cellSx}>
-                            <Typography variant="body2">{row.proposalNumber}</Typography>
-                        </Box>
-                        <Box sx={cellSx}>
-                            <Typography variant="body2">{row.author}</Typography>
-                        </Box>
-                        <Box sx={cellSx}>
-                            <Typography variant="body2">{row.updated}</Typography>
-                        </Box>
-                        <Box sx={{ ...cellSx, borderRight: 'none' }}>
-                            <Stack direction="row" spacing={1} flexWrap="wrap">
-                                {row.notification === 'info' && (
-                                    <Stack direction="row" spacing={1} alignItems="center">
-                                        <Chip label="5" size="small" sx={{ backgroundColor: '#2e7d32', color: '#fff' }} />
-                                        <Chip label="5" size="small" sx={{ backgroundColor: '#c62828', color: '#fff' }} />
-                                    </Stack>
-                                )}
-                                {row.notification === 'success' && (
-                                    <Chip label="Новое предложение" size="small" sx={{ backgroundColor: '#2e7d32', color: '#fff' }} />
-                                )}
-                                {row.notification === 'error' && (
-                                    <Chip label="Отмена сделки" size="small" sx={{ backgroundColor: '#c62828', color: '#fff' }} />
-                                )}
-                            </Stack>
-                        </Box>
+                {isLoading && (
+                    <Box sx={{ gridColumn: `1 / span ${columns.length}`, padding: 2 }}>
+                        <Typography variant="body2">Загрузка...</Typography>
                     </Box>
-                ))}
+                )}
+                {!isLoading &&
+                    requests.map((row) => (
+                        <Box
+                            key={row.id}
+                            sx={{
+                                display: 'contents'
+                            }}
+                        >
+                            <Box sx={cellSx}>
+                                <Typography variant="body2">{row.id}</Typography>
+                            </Box>
+                            <Box sx={cellSx}>
+                                <Typography variant="body2">{row.description ?? '-'}</Typography>
+                            </Box>
+                            <Box sx={cellSx}>
+                                <Typography variant="body2">{row.status ?? '-'}</Typography>
+                            </Box>
+                            <Box sx={cellSx}>
+                                <Typography variant="body2">{formatDate(row.deadline_at)}</Typography>
+                            </Box>
+                            <Box sx={cellSx}>
+                                <Typography variant="body2">{formatDate(row.created_at)}</Typography>
+                            </Box>
+                            <Box sx={cellSx}>
+                                <Typography variant="body2">{formatDate(row.closed_at)}</Typography>
+                            </Box>
+                            <Box sx={cellSx}>
+                                <Typography variant="body2">{row.id_offer ?? '-'}</Typography>
+                            </Box>
+                            <Box sx={cellSx}>
+                                <Typography variant="body2">{row.id_user_web}</Typography>
+                            </Box>
+                            <Box sx={cellSx}>
+                                <Typography variant="body2">{formatDate(row.updated_at, true)}</Typography>
+                            </Box>
+                            <Box sx={{ ...cellSx, borderRight: 'none' }}>
+                                <NotificationContent
+                                    countSubmitted={row.count_submitted}
+                                    countDeleted={row.count_deleted_alert}
+                                />
+                            </Box>
+                        </Box>
+                    ))
+                }
             </Box>
         </Box>
     );

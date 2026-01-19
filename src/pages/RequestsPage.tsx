@@ -1,11 +1,35 @@
-import { Box, Button, Stack } from '@mui/material';
+import { useEffect, useState } from 'react';
+import { Box, Button, Stack, Typography } from '@mui/material';
 import { RequestsTable } from '@features/requests/components/RequestsTable';
+import { getRequests } from '@shared/api/getRequests';
+import type { RequestWithOfferStats } from '@shared/api/getRequests';
 
 type RequestsPageProps = {
     onCreateRequest?: () => void;
+    userLogin: string;
 };
 
-export const RequestsPage = ({ onCreateRequest }: RequestsPageProps) => {
+export const RequestsPage = ({ onCreateRequest, userLogin }: RequestsPageProps) => {
+    const [requests, setRequests] = useState<RequestWithOfferStats[]>([]);
+    const [isLoading, setIsLoading] = useState(false);
+    const [errorMessage, setErrorMessage] = useState<string | null>(null);
+
+    useEffect(() => {
+        const fetchRequests = async () => {
+            setIsLoading(true);
+            setErrorMessage(null);
+            try {
+                const data = await getRequests({ id_user_web: userLogin });
+                setRequests(data.requests);
+            } catch (error) {
+                setErrorMessage(error instanceof Error ? error.message : 'Ошибка загрузки заявок');
+            } finally {
+                setIsLoading(false);
+            }
+        };
+
+        fetchRequests();
+    }, [userLogin]);
     return (
         <Box sx={{ minHeight: '100vh', padding: { xs: 2, md: 4 } }}>
             <Stack direction="row" justifyContent="space-between" alignItems="center" mb={3}>
@@ -36,7 +60,12 @@ export const RequestsPage = ({ onCreateRequest }: RequestsPageProps) => {
                     Выйти
                 </Button>
             </Stack>
-            <RequestsTable />
+            {errorMessage && (
+                <Typography color="error" sx={{ mb: 2 }}>
+                    {errorMessage}
+                </Typography>
+            )}
+            <RequestsTable requests={requests} isLoading={isLoading} />
         </Box>
     );
 };
