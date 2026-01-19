@@ -1,19 +1,22 @@
 import { useState } from 'react';
 import { AuthPage } from '@pages/AuthPage';
 import { CreateRequestPage } from '@pages/CreateRequestPage';
+import { RequestDetailsPage } from '@pages/RequestDetailsPage';
 import { RequestsPage } from '@pages/RequestsPage';
 import { createRequest } from '@shared/api/createRequest';
 import { loginWebUser } from '@shared/api/loginWebUser';
 import type { LoginWebUserPayload } from '@shared/api/loginWebUser';
 import { registerWebUser } from '@shared/api/registerWebUser';
 import type { RegisterWebUserPayload } from '@shared/api/registerWebUser';
+import type { RequestWithOfferStats } from '@shared/api/getRequests';
 
 export const App = () => {
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [userLogin, setUserLogin] = useState<string | null>(null);
-  const [activePage, setActivePage] = useState<'requests' | 'create'>('requests');
+  const [activePage, setActivePage] = useState<'requests' | 'create' | 'details'>('requests');
+  const [selectedRequest, setSelectedRequest] = useState<RequestWithOfferStats | null>(null);
   const [isCreatingRequest, setIsCreatingRequest] = useState(false);
   const [createRequestError, setCreateRequestError] = useState<string | null>(null);
 
@@ -90,13 +93,31 @@ export const App = () => {
           setCreateRequestError(null);
           setActivePage('create');
         }}
+        onRequestSelect={(request) => {
+          setSelectedRequest(request);
+          setActivePage('details');
+        }}
       />
-    ) : (
+    ) : activePage === 'create' ? (
       <CreateRequestPage
         onClose={() => setActivePage('requests')}
         onSubmit={handleCreateRequest}
         isSubmitting={isCreatingRequest}
         errorMessage={createRequestError}
+      />
+    ) : selectedRequest ? (
+      <RequestDetailsPage
+        request={selectedRequest}
+        userLogin={userLogin ?? ''}
+        onBack={() => setActivePage('requests')}
+      />
+    ) : (
+      <RequestsPage
+        userLogin={userLogin ?? ''}
+        onCreateRequest={() => {
+          setCreateRequestError(null);
+          setActivePage('create');
+        }}
       />
     )
   ) : (

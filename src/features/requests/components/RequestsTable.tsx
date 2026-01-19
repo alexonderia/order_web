@@ -29,6 +29,7 @@ const cellSx = {
 type RequestsTableProps = {
     requests: RequestWithOfferStats[];
     isLoading?: boolean;
+    onRowClick?: (request: RequestWithOfferStats) => void;
 };
 
 const formatDate = (value: string | null, withTime = false) => {
@@ -81,12 +82,12 @@ const NotificationContent = ({ countSubmitted, countDeleted }: { countSubmitted:
     return <Chip label={label} size="small" sx={{ backgroundColor: '#c62828', color: '#fff' }} />;
 };
 
-export const RequestsTable = ({ requests, isLoading }: RequestsTableProps) => {
+export const RequestsTable = ({ requests, isLoading, onRowClick }: RequestsTableProps) => {
     return (
         <Box
             sx={{
                 backgroundColor: '#d9d9d9',
-                borderRadius: 3,
+                borderRadius: 2,
                 padding: 2,
                 border: '1px solid rgba(0,0,0,0.3)',
                 overflow: 'hidden'
@@ -117,31 +118,58 @@ export const RequestsTable = ({ requests, isLoading }: RequestsTableProps) => {
                                 display: 'contents'
                             }}
                         >
-                            <Box sx={cellSx}>
+                            <Box
+                                sx={{ ...cellSx, cursor: onRowClick ? 'pointer' : 'default' }}
+                                onClick={() => onRowClick?.(row)}
+                            >
                                 <Typography variant="body2">{row.id}</Typography>
                             </Box>
-                            <Box sx={cellSx}>
+                            <Box
+                                sx={{ ...cellSx, cursor: onRowClick ? 'pointer' : 'default' }}
+                                onClick={() => onRowClick?.(row)}
+                            >
                                 <Typography variant="body2">{row.description ?? '-'}</Typography>
                             </Box>
-                            <Box sx={cellSx}>
+                            <Box
+                                sx={{ ...cellSx, cursor: onRowClick ? 'pointer' : 'default' }}
+                                onClick={() => onRowClick?.(row)}
+                            >
                                 <Typography variant="body2">{row.status ?? '-'}</Typography>
                             </Box>
-                            <Box sx={cellSx}>
+                            <Box
+                                sx={{ ...cellSx, cursor: onRowClick ? 'pointer' : 'default' }}
+                                onClick={() => onRowClick?.(row)}
+                            >
                                 <Typography variant="body2">{formatDate(row.deadline_at)}</Typography>
                             </Box>
-                            <Box sx={cellSx}>
+                            <Box
+                                sx={{ ...cellSx, cursor: onRowClick ? 'pointer' : 'default' }}
+                                onClick={() => onRowClick?.(row)}
+                            >
                                 <Typography variant="body2">{formatDate(row.created_at)}</Typography>
                             </Box>
-                            <Box sx={cellSx}>
+                            <Box
+                                sx={{ ...cellSx, cursor: onRowClick ? 'pointer' : 'default' }}
+                                onClick={() => onRowClick?.(row)}
+                            >
                                 <Typography variant="body2">{formatDate(row.closed_at)}</Typography>
                             </Box>
-                            <Box sx={cellSx}>
+                            <Box
+                                sx={{ ...cellSx, cursor: onRowClick ? 'pointer' : 'default' }}
+                                onClick={() => onRowClick?.(row)}
+                            >
                                 <Typography variant="body2">{row.id_offer ?? '-'}</Typography>
                             </Box>
-                            <Box sx={cellSx}>
+                            <Box
+                                sx={{ ...cellSx, cursor: onRowClick ? 'pointer' : 'default' }}
+                                onClick={() => onRowClick?.(row)}
+                            >
                                 <Typography variant="body2">{row.id_user_web}</Typography>
                             </Box>
-                            <Box sx={cellSx}>
+                            <Box
+                                sx={{ ...cellSx, cursor: onRowClick ? 'pointer' : 'default' }}
+                                onClick={() => onRowClick?.(row)}
+                            >
                                 <Typography variant="body2">{formatDate(row.updated_at, true)}</Typography>
                             </Box>
                             <Box sx={{ ...cellSx, borderRight: 'none' }}>

@@ -7,9 +7,10 @@ import type { RequestWithOfferStats } from '@shared/api/getRequests';
 type RequestsPageProps = {
     onCreateRequest?: () => void;
     userLogin: string;
+    onRequestSelect?: (request: RequestWithOfferStats) => void;
 };
 
-export const RequestsPage = ({ onCreateRequest, userLogin }: RequestsPageProps) => {
+export const RequestsPage = ({ onCreateRequest, userLogin, onRequestSelect }: RequestsPageProps) => {
     const [requests, setRequests] = useState<RequestWithOfferStats[]>([]);
     const [isLoading, setIsLoading] = useState(false);
     const [errorMessage, setErrorMessage] = useState<string | null>(null);
@@ -65,7 +66,7 @@ export const RequestsPage = ({ onCreateRequest, userLogin }: RequestsPageProps) 
                     {errorMessage}
                 </Typography>
             )}
-            <RequestsTable requests={requests} isLoading={isLoading} />
+            <RequestsTable requests={requests} isLoading={isLoading} onRowClick={onRequestSelect} />
         </Box>
     );
 };

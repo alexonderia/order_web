@@ -27,7 +27,7 @@ export const AuthCard = ({ onRegister, onLogin, isSubmitting, errorMessage }: Au
             elevation={0}
             sx={{
                 width: { xs: '90%', sm: 420 },
-                borderRadius: 3,
+                borderRadius: 2,
                 border: '1px solid #1f1f1f',
                 backgroundColor: '#dedede',
                 padding: { xs: 4, sm: 6 }
