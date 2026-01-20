@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import {
     Box,
     Button,
@@ -9,7 +9,10 @@ import {
     Typography
 } from '@mui/material';
 import { updateRequest } from '@shared/api/updateRequest';
+import { apiConfig } from '@shared/api/client';
+import { getOffers } from '@shared/api/getOffers';
 import type { RequestWithOfferStats } from '@shared/api/getRequests';
+import type { OfferDetails } from '@shared/api/getOffers';
 
 type RequestDetailsPageProps = {
     request: RequestWithOfferStats;
@@ -19,12 +22,24 @@ type RequestDetailsPageProps = {
 
 type RequestStatus = 'open' | 'review' | 'closed' | 'cancelled';
 
+type OfferDecisionStatus = 'accepted' | 'rejected' | '';
+
+type OfferStatusOption = {
+    value: OfferDecisionStatus;
+    label: string;
+};
+
 const statusOptions = [
-  { value: 'open', label: 'Открыта', color: '#2e7d32' },
-  { value: 'review', label: 'На рассмотрении', color: '#ed6c02' },
-  { value: 'closed', label: 'Закрыта', color: '#1976d2' },
-  { value: 'cancelled', label: 'Отменена', color: '#d32f2f' }
+    { value: 'open', label: 'Открыта', color: '#2e7d32' },
+    { value: 'review', label: 'На рассмотрении', color: '#ed6c02' },
+    { value: 'closed', label: 'Закрыта', color: '#1976d2' },
+    { value: 'cancelled', label: 'Отменена', color: '#d32f2f' }
 ] as const;
+
+const offerStatusOptions: OfferStatusOption[] = [
+    { value: 'accepted', label: 'Принято' },
+    { value: 'rejected', label: 'Отказано' }
+];
 
 const formatDate = (value: string | null) => {
     if (!value) {
@@ -44,24 +59,60 @@ const formatDate = (value: string | null) => {
 };
 
 const toDateInputValue = (value: string | null) => {
-  if (!value) return '';
-  // берём только дату до 'T'
-  const [datePart] = value.split('T');
-  return datePart ?? '';
+    if (!value) return '';
+    // берём только дату до 'T'
+    const [datePart] = value.split('T');
+    return datePart ?? '';
 };
 
-const offersPlaceholder = [
-    {
-        id: 451,
-        status: 'Отправлено',
-        icon: 'plus'
-    },
-    {
-        id: null,
-        status: 'Удалено',
-        icon: 'alert'
+const getFileUrl = (filePath: string | null) => {
+    if (!filePath) {
+        return null;
     }
-];
+
+    const baseUrl = apiConfig.baseUrl.trim();
+    if (!baseUrl) {
+        return `/${filePath}`;
+    }
+
+    return `${baseUrl.replace(/\/$/, '')}/${filePath.replace(/^\//, '')}`;
+};
+
+const getContactInfo = (offer: OfferDetails) => {
+    const parts = [
+        offer.tg_username ? `Telegram: ${offer.tg_username}` : null,
+        offer.phone ? `Телефон: ${offer.phone}` : null,
+        offer.mail ? `Email: ${offer.mail}` : null,
+        offer.address ? `Адрес: ${offer.address}` : null,
+        offer.note ? `Комментарий: ${offer.note}` : null
+    ].filter(Boolean) as string[];
+
+    return parts.length > 0 ? parts : ['-'];
+};
+
+const normalizeOfferStatus = (value: string | null): OfferDecisionStatus => {
+    if (value === 'accepted' || value === 'rejected') {
+        return value;
+    }
+
+    return '';
+};
+
+const getNotificationStyle = (status: string | null) => {
+    if (status === 'accepted') {
+        return { backgroundColor: '#2e7d32', label: '✓' };
+    }
+
+    if (status === 'submitted') {
+        return { backgroundColor: '#2e7d32', label: '+' };
+    }
+
+    if (status === 'deleted') {
+        return { backgroundColor: '#c62828', label: '-' };
+    }
+
+    return { backgroundColor: '#ffffffff', label: ' '};
+};
 
 export const RequestDetailsPage = ({ request, userLogin, onBack }: RequestDetailsPageProps) => {
     const initialStatus = (statusOptions.find((o) => o.value === request.status)?.value ?? 'open') as RequestStatus;
@@ -69,7 +120,7 @@ export const RequestDetailsPage = ({ request, userLogin, onBack }: RequestDetail
     const [status, setStatus] = useState<RequestStatus>(initialStatus);
     const [baselineStatus, setBaselineStatus] = useState<RequestStatus>(initialStatus);
     const isRequestStatus = (value: unknown): value is RequestStatus =>
-    value === 'open' || value === 'review' || value === 'closed' || value === 'cancelled';
+        value === 'open' || value === 'review' || value === 'closed' || value === 'cancelled';
 
     const [deadline, setDeadline] = useState<string>(toDateInputValue(request.deadline_at));
     const [baselineDeadline, setBaselineDeadline] = useState<string>(toDateInputValue(request.deadline_at));
@@ -77,10 +128,37 @@ export const RequestDetailsPage = ({ request, userLogin, onBack }: RequestDetail
     const [errorMessage, setErrorMessage] = useState<string | null>(null);
     const [successMessage, setSuccessMessage] = useState<string | null>(null);
 
+    const [offers, setOffers] = useState<OfferDetails[]>([]);
+    const [offersStatusMap, setOffersStatusMap] = useState<Record<number, OfferDecisionStatus>>({});
+    const [offersLoading, setOffersLoading] = useState(false);
+    const [offersError, setOffersError] = useState<string | null>(null);
+
     const statusConfig = useMemo(
         () => statusOptions.find((option) => option.value === status) ?? statusOptions[0],
         [status]
     );
+
+    useEffect(() => {
+        const fetchOffers = async () => {
+            setOffersLoading(true);
+            setOffersError(null);
+            try {
+                const data = await getOffers({ requestId: request.id, userLogin });
+                setOffers(data.offers ?? []);
+                const nextStatusMap = data.offers.reduce<Record<number, OfferDecisionStatus>>((acc, offer) => {
+                    acc[offer.offer_id] = normalizeOfferStatus(offer.status);
+                    return acc;
+                }, {});
+                setOffersStatusMap(nextStatusMap);
+            } catch (error) {
+                setOffersError(error instanceof Error ? error.message : 'Не удалось загрузить офферы');
+            } finally {
+                setOffersLoading(false);
+            }
+        };
+
+        fetchOffers();
+    }, [request.id, userLogin]);
 
     const handleSave = async () => {
         const statusChanged = status !== baselineStatus;
@@ -129,6 +207,12 @@ export const RequestDetailsPage = ({ request, userLogin, onBack }: RequestDetail
         }
     };
 
+    const handleOfferStatusChange = (offerId: number, value: OfferDecisionStatus) => {
+        setOffersStatusMap((prev) => ({
+            ...prev,
+            [offerId]: value
+        }));
+    };
 
     return (
         <Box sx={{ minHeight: '100vh', padding: { xs: 2, md: 4 } }}>
@@ -316,75 +400,142 @@ export const RequestDetailsPage = ({ request, userLogin, onBack }: RequestDetail
                 <Box
                     sx={{
                         display: 'grid',
-                        gridTemplateColumns: '0.4fr 0.8fr 1.5fr 1.2fr 1.2fr 1.2fr 1fr',
+                        gridTemplateColumns: '0.4fr 0.8fr 1.4fr 1.6fr 1.1fr 1.1fr 1fr 1fr',
                         borderBottom: '1px solid rgba(0,0,0,0.3)'
                     }}
                 >
-                    {['', 'Номер КП', 'Контрагент', 'Дата создания', 'Дата изменения', 'Файл КП', 'Статус'].map(
-                        (column) => (
-                            <Box key={column} sx={{ padding: 1, fontWeight: 600 }}>
-                                <Typography variant="body2">{column}</Typography>
-                            </Box>
-                        )
-                    )}
+                    {[
+                        '',
+                        'Номер КП',
+                        'Контрагент',
+                        'Контакты',
+                        'Дата создания',
+                        'Дата изменения',
+                        'КП',
+                        'Статус'
+                    ].map((column) => (
+                        <Box key={column} sx={{ padding: 1, fontWeight: 600 }}>
+                            <Typography variant="body2">{column}</Typography>
+                        </Box>
+                    ))}
                 </Box>
-                {offersPlaceholder.map((offer, index) => (
-                    <Box
-                        key={`${offer.status}-${index}`}
-                        sx={{
-                            display: 'grid',
-                            gridTemplateColumns: '0.4fr 0.8fr 1.5fr 1.2fr 1.2fr 1.2fr 1fr',
-                            borderBottom:
-                                index === offersPlaceholder.length - 1
-                                    ? 'none'
-                                    : '1px solid rgba(0,0,0,0.3)'
-                        }}
-                    >
-                        <Box sx={{ padding: 1, display: 'flex', justifyContent: 'center' }}>
+                {offersLoading && (
+                    <Box sx={{ padding: 2 }}>
+                        <Typography variant="body2">Загрузка офферов...</Typography>
+                    </Box>
+                )}
+                {offersError && !offersLoading && (
+                    <Box sx={{ padding: 2 }}>
+                        <Typography color="error">{offersError}</Typography>
+                    </Box>
+                )}
+                {!offersLoading && !offersError && offers.length === 0 && (
+                    <Box sx={{ padding: 2 }}>
+                        <Typography variant="body2">Офферы пока не получены.</Typography>
+                    </Box>
+                )}
+                {!offersLoading && !offersError &&
+                    offers.map((offer, index) => {
+                        const currentStatus = offersStatusMap[offer.offer_id] ?? '';
+                        const notificationStyle = getNotificationStyle(currentStatus);
+                        const fileUrl = getFileUrl(offer.file_path);
+                        const contactInfo = getContactInfo(offer);
+                        const counterparty = offer.real_name ?? offer.tg_username ?? '-';
+                        return (
                             <Box
+                                key={offer.offer_id}
                                 sx={{
-                                    width: 28,
-                                    height: 28,
-                                    borderRadius: 2,
-                                    backgroundColor: offer.icon === 'plus' ? '#2e7d32' : '#c62828',
-                                    color: '#fff',
-                                    display: 'flex',
-                                    alignItems: 'center',
-                                    justifyContent: 'center',
-                                    fontWeight: 700
+                                    display: 'grid',
+                                    gridTemplateColumns: '0.4fr 0.8fr 1.4fr 1.6fr 1.1fr 1.1fr 1fr 1fr',
+                                    borderBottom:
+                                        index === offers.length - 1
+                                            ? 'none'
+                                            : '1px solid rgba(0,0,0,0.3)'
                                 }}
                             >
-                                {offer.icon === 'plus' ? '+' : '!'}
+                                <Box sx={{ padding: 1, display: 'flex', justifyContent: 'center' }}>
+                                    <Box
+                                        sx={{
+                                            width: 28,
+                                            height: 28,
+                                            borderRadius: 2,
+                                            backgroundColor: notificationStyle.backgroundColor,
+                                            color: '#fff',
+                                            display: 'flex',
+                                            alignItems: 'center',
+                                            justifyContent: 'center',
+                                            fontWeight: 700
+                                        }}
+                                    >
+                                        {notificationStyle.label}
+                                    </Box>
+                                </Box>
+                                <Box sx={{ padding: 1 }}>
+                                    <Typography variant="body2">{offer.offer_id}</Typography>
+                                </Box>
+                                <Box sx={{ padding: 1 }}>
+                                    <Typography variant="body2">{counterparty}</Typography>
+                                </Box>
+                                <Box sx={{ padding: 1 }}>
+                                    <Stack spacing={0.5}>
+                                        {contactInfo.map((item) => (
+                                            <Typography key={item} variant="body2">
+                                                {item}
+                                            </Typography>
+                                        ))}
+                                    </Stack>
+                                </Box>
+                                <Box sx={{ padding: 1 }}>
+                                    <Typography variant="body2">{formatDate(offer.created_at)}</Typography>
+                                </Box>
+                                <Box sx={{ padding: 1 }}>
+                                    <Typography variant="body2">{formatDate(offer.updated_at)}</Typography>
+                                </Box>
+                                <Box sx={{ padding: 1 }}>
+                                    {fileUrl ? (
+                                        <Typography
+                                            component="a"
+                                            href={fileUrl}
+                                            target="_blank"
+                                            rel="noreferrer"
+                                            variant="body2"
+                                            sx={{ color: '#1f1f1f', textDecoration: 'underline' }}
+                                        >
+                                            Скачать
+                                        </Typography>
+                                    ) : (
+                                        <Typography variant="body2">-</Typography>
+                                    )}
+                                </Box>
+                                <Box sx={{ padding: 1 }}>
+                                    <Select
+                                        size="small"
+                                        value={currentStatus}
+                                        displayEmpty
+                                        onChange={(event) =>
+                                            handleOfferStatusChange(
+                                                offer.offer_id,
+                                                event.target.value as OfferDecisionStatus
+                                            )
+                                        }
+                                        sx={{ minWidth: 140 }}
+                                    >
+                                        <MenuItem value="">
+                                            <Typography variant="body2" color="text.secondary">
+                                                Выберите
+                                            </Typography>
+                                        </MenuItem>
+                                        {offerStatusOptions.map((option) => (
+                                            <MenuItem key={option.value} value={option.value}>
+                                                {option.label}
+                                            </MenuItem>
+                                        ))}
+                                    </Select>
+                                </Box>
                             </Box>
-                        </Box>
-                        <Box sx={{ padding: 1 }}>
-                            <Typography variant="body2">{offer.id ?? '-'}</Typography>
-                        </Box>
-                        <Box sx={{ padding: 1 }}>
-                            <Typography variant="body2">-</Typography>
-                        </Box>
-                        <Box sx={{ padding: 1 }}>
-                            <Typography variant="body2">-</Typography>
-                        </Box>
-                        <Box sx={{ padding: 1 }}>
-                            <Typography variant="body2">-</Typography>
-                        </Box>
-                        <Box sx={{ padding: 1 }}>
-                            <Typography variant="body2">-</Typography>
-                        </Box>
-                        <Box sx={{ padding: 1 }}>
-                            <Select
-                                size="small"
-                                value={offer.status}
-                                onChange={() => undefined}
-                                sx={{ minWidth: 140 }}
-                            >
-                                <MenuItem value="Отправлено">Отправлено</MenuItem>
-                                <MenuItem value="Удалено">Удалено</MenuItem>
-                            </Select>
-                        </Box>
-                    </Box>
-                ))}
+                        );
+                    })
+                }
             </Box>
         </Box>
     );

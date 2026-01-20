@@ -97,7 +97,7 @@ export const RequestsTable = ({ requests, isLoading, onRowClick }: RequestsTable
                 sx={{
                     display: 'grid',
                     gridTemplateColumns: gridTemplate,
-                    alignItems: 'stretch'
+                    alignItems: 'stretch',
                 }}
             >
                 {columns.map((column) => (
@@ -174,8 +174,8 @@ export const RequestsTable = ({ requests, isLoading, onRowClick }: RequestsTable
                             </Box>
                             <Box sx={{ ...cellSx, borderRight: 'none' }}>
                                 <NotificationContent
-                                    countSubmitted={row.count_submitted}
-                                    countDeleted={row.count_deleted_alert}
+                                    countSubmitted={row.count_submitted ?? 0}
+                                    countDeleted={row.count_deleted_alert ?? 0}
                                 />
                             </Box>
                         </Box>
