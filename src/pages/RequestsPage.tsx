@@ -6,11 +6,12 @@ import type { RequestWithOfferStats } from '@shared/api/getRequests';
 
 type RequestsPageProps = {
     onCreateRequest?: () => void;
+    onLogout?: () => void;
     userLogin: string;
     onRequestSelect?: (request: RequestWithOfferStats) => void;
 };
 
-export const RequestsPage = ({ onCreateRequest, userLogin, onRequestSelect }: RequestsPageProps) => {
+export const RequestsPage = ({ onCreateRequest, onLogout, userLogin, onRequestSelect }: RequestsPageProps) => {
     const [requests, setRequests] = useState<RequestWithOfferStats[]>([]);
     const [isLoading, setIsLoading] = useState(false);
     const [errorMessage, setErrorMessage] = useState<string | null>(null);
@@ -57,6 +58,7 @@ export const RequestsPage = ({ onCreateRequest, userLogin, onRequestSelect }: Re
                         color: '#1f1f1f',
                         backgroundColor: '#d9d9d9'
                     }}
+                    onClick={onLogout}
                 >
                     Выйти
                 </Button>

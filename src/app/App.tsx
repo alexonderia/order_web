@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { AdminPage } from '@pages/AdminPage';
 import { AuthPage } from '@pages/AuthPage';
 import { CreateRequestPage } from '@pages/CreateRequestPage';
 import { RequestDetailsPage } from '@pages/RequestDetailsPage';
@@ -15,7 +16,8 @@ export const App = () => {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [userLogin, setUserLogin] = useState<string | null>(null);
-  const [activePage, setActivePage] = useState<'requests' | 'create' | 'details'>('requests');
+  const [userRole, setUserRole] = useState<number | null>(null);
+  const [activePage, setActivePage] = useState<'requests' | 'create' | 'details' | 'admin'>('requests');
   const [selectedRequest, setSelectedRequest] = useState<RequestWithOfferStats | null>(null);
   const [isCreatingRequest, setIsCreatingRequest] = useState(false);
   const [createRequestError, setCreateRequestError] = useState<string | null>(null);
@@ -27,6 +29,8 @@ export const App = () => {
       const response = await registerWebUser(payload);
       setIsAuthenticated(true);
       setUserLogin(response.login);
+      setUserRole(response.role);
+      setActivePage('requests');
     } catch (error) {
       setErrorMessage(error instanceof Error ? error.message : 'Ошибка регистрации');
     } finally {
@@ -41,6 +45,8 @@ export const App = () => {
       const response = await loginWebUser(payload);
       setIsAuthenticated(true);
       setUserLogin(response.login);
+      setUserRole(response.role);
+      setActivePage(response.role === 1 ? 'admin' : 'requests');
     } catch (error) {
       setErrorMessage(error instanceof Error ? error.message : 'Ошибка авторизации');
     } finally {
@@ -84,15 +90,24 @@ export const App = () => {
     }
   };
 
+  const handleLogout = () => {
+    setIsAuthenticated(false);
+    setUserLogin(null);
+    setUserRole(null);
+    setActivePage('requests');
+  };
 
   return isAuthenticated ? (
-    activePage === 'requests' ? (
+    userRole === 1 && activePage === 'admin' ? (
+      <AdminPage onLogout={handleLogout} />
+    ) : activePage === 'requests' ? (
       <RequestsPage
         userLogin={userLogin ?? ''}
         onCreateRequest={() => {
           setCreateRequestError(null);
           setActivePage('create');
         }}
+        onLogout={handleLogout}
         onRequestSelect={(request) => {
           setSelectedRequest(request);
           setActivePage('details');
@@ -118,6 +133,7 @@ export const App = () => {
           setCreateRequestError(null);
           setActivePage('create');
         }}
+        onLogout={handleLogout}
       />
     )
   ) : (
