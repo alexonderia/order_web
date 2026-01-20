@@ -16,16 +16,15 @@ export type CreateRequestResponse = {
 export const createRequest = async (payload: CreateRequestPayload): Promise<CreateRequestResponse> => {
   const formData = new FormData();
   formData.append('file', payload.file);
+  formData.append('id_user_web', payload.id_user_web);
+  formData.append('deadline_at', payload.deadline_at);
 
-  const queryParams = new URLSearchParams({
-    id_user_web: payload.id_user_web,
-    deadline_at: payload.deadline_at
-  });
+  
   if (payload.description) {
-    queryParams.set('description', payload.description);
+    formData.append('description', payload.description);
   }
 
-  const response = await fetch(`${apiConfig.baseUrl}/api/web/requests/create?${queryParams.toString()}`, {
+  const response = await fetch(`${apiConfig.baseUrl}/api/web/requests/create`, {
     method: 'POST',
     body: formData
   });

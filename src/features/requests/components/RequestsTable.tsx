@@ -95,18 +95,25 @@ export const RequestsTable = ({ requests, isLoading, onRowClick }: RequestsTable
         >
             <Box
                 sx={{
-                    display: 'grid',
-                    gridTemplateColumns: gridTemplate,
-                    alignItems: 'stretch',
+                    display: 'flex',
+                    flexDirection: 'column'
                 }}
             >
-                {columns.map((column) => (
-                    <Box key={column} sx={{ ...cellSx, fontWeight: 600 }}>
-                        <Typography variant="body2">{column}</Typography>
-                    </Box>
-                ))}
+                <Box
+                    sx={{
+                        display: 'grid',
+                        gridTemplateColumns: gridTemplate,
+                        alignItems: 'stretch'
+                    }}
+                >
+                    {columns.map((column) => (
+                        <Box key={column} sx={{ ...cellSx, fontWeight: 600 }}>
+                            <Typography variant="body2">{column}</Typography>
+                        </Box>
+                    ))}
+                </Box>
                 {isLoading && (
-                    <Box sx={{ gridColumn: `1 / span ${columns.length}`, padding: 2 }}>
+                    <Box sx={{ padding: 2 }}>
                         <Typography variant="body2">Загрузка...</Typography>
                     </Box>
                 )}
@@ -115,61 +122,44 @@ export const RequestsTable = ({ requests, isLoading, onRowClick }: RequestsTable
                         <Box
                             key={row.id}
                             sx={{
-                                display: 'contents'
+                                display: 'grid',
+                                gridTemplateColumns: gridTemplate,
+                                alignItems: 'stretch',
+                                borderRadius: 2,
+                                overflow: 'hidden',
+                                transition: 'background-color 0.2s ease',
+                                '&:hover': {
+                                    backgroundColor: '#ffffff'
+                                },
+                                cursor: onRowClick ? 'pointer' : 'default'
                             }}
+                            onClick={() => onRowClick?.(row)}
                         >
-                            <Box
-                                sx={{ ...cellSx, cursor: onRowClick ? 'pointer' : 'default' }}
-                                onClick={() => onRowClick?.(row)}
-                            >
+                            <Box sx={cellSx}>
                                 <Typography variant="body2">{row.id}</Typography>
                             </Box>
-                            <Box
-                                sx={{ ...cellSx, cursor: onRowClick ? 'pointer' : 'default' }}
-                                onClick={() => onRowClick?.(row)}
-                            >
+                            <Box sx={cellSx}>
                                 <Typography variant="body2">{row.description ?? '-'}</Typography>
                             </Box>
-                            <Box
-                                sx={{ ...cellSx, cursor: onRowClick ? 'pointer' : 'default' }}
-                                onClick={() => onRowClick?.(row)}
-                            >
+                            <Box sx={cellSx}>
                                 <Typography variant="body2">{row.status ?? '-'}</Typography>
                             </Box>
-                            <Box
-                                sx={{ ...cellSx, cursor: onRowClick ? 'pointer' : 'default' }}
-                                onClick={() => onRowClick?.(row)}
-                            >
+                            <Box sx={cellSx}>
                                 <Typography variant="body2">{formatDate(row.deadline_at)}</Typography>
                             </Box>
-                            <Box
-                                sx={{ ...cellSx, cursor: onRowClick ? 'pointer' : 'default' }}
-                                onClick={() => onRowClick?.(row)}
-                            >
+                            <Box sx={cellSx}>
                                 <Typography variant="body2">{formatDate(row.created_at)}</Typography>
                             </Box>
-                            <Box
-                                sx={{ ...cellSx, cursor: onRowClick ? 'pointer' : 'default' }}
-                                onClick={() => onRowClick?.(row)}
-                            >
+                            <Box sx={cellSx}>
                                 <Typography variant="body2">{formatDate(row.closed_at)}</Typography>
                             </Box>
-                            <Box
-                                sx={{ ...cellSx, cursor: onRowClick ? 'pointer' : 'default' }}
-                                onClick={() => onRowClick?.(row)}
-                            >
+                            <Box sx={cellSx}>
                                 <Typography variant="body2">{row.id_offer ?? '-'}</Typography>
                             </Box>
-                            <Box
-                                sx={{ ...cellSx, cursor: onRowClick ? 'pointer' : 'default' }}
-                                onClick={() => onRowClick?.(row)}
-                            >
+                            <Box sx={cellSx}>
                                 <Typography variant="body2">{row.id_user_web}</Typography>
                             </Box>
-                            <Box
-                                sx={{ ...cellSx, cursor: onRowClick ? 'pointer' : 'default' }}
-                                onClick={() => onRowClick?.(row)}
-                            >
+                            <Box sx={cellSx}>
                                 <Typography variant="body2">{formatDate(row.updated_at, true)}</Typography>
                             </Box>
                             <Box sx={{ ...cellSx, borderRight: 'none' }}>

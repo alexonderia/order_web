@@ -33,29 +33,49 @@ export const EconomistsTable = ({ users, isLoading, getRoleLabel, onEdit }: Econ
     >
       <Box
         sx={{
-          display: 'grid',
-          gridTemplateColumns: gridTemplate,
-          alignItems: 'stretch'
+          display: 'flex',
+          flexDirection: 'column'
         }}
       >
-        {columns.map((column, index) => (
-          <Box key={`${column}-${index}`} sx={{ ...cellSx, fontWeight: 600 }}>
-            <Typography variant="body2">{column}</Typography>
-          </Box>
-        ))}
+        <Box
+          sx={{
+            display: 'grid',
+            gridTemplateColumns: gridTemplate,
+            alignItems: 'stretch'
+          }}
+        >
+          {columns.map((column, index) => (
+            <Box key={`${column}-${index}`} sx={{ ...cellSx, fontWeight: 600 }}>
+              <Typography variant="body2">{column}</Typography>
+            </Box>
+          ))}
+        </Box>
         {isLoading && (
-          <Box sx={{ gridColumn: `1 / span ${columns.length}`, padding: 2 }}>
+          <Box sx={{ padding: 2 }}>
             <Typography variant="body2">Загрузка...</Typography>
           </Box>
         )}
         {!isLoading && users.length === 0 && (
-          <Box sx={{ gridColumn: `1 / span ${columns.length}`, padding: 2 }}>
+          <Box sx={{ padding: 2 }}>
             <Typography variant="body2">Экономисты не найдены.</Typography>
           </Box>
         )}
         {!isLoading &&
           users.map((user) => (
-            <Box key={user.id} sx={{ display: 'contents' }}>
+            <Box
+              key={user.id}
+              sx={{
+                display: 'grid',
+                gridTemplateColumns: gridTemplate,
+                alignItems: 'stretch',
+                borderRadius: 2,
+                overflow: 'hidden',
+                transition: 'background-color 0.2s ease',
+                '&:hover': {
+                  backgroundColor: '#ffffff'
+                }
+              }}
+            >
               <Box sx={cellSx}>
                 <Typography variant="body2">{user.id}</Typography>
               </Box>

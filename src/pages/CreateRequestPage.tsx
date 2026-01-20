@@ -1,5 +1,5 @@
 import { Box, Button, IconButton, Stack, TextField, Typography } from '@mui/material';
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 import type { FormEvent } from 'react';
 
 export type CreateRequestFormData = {
@@ -21,8 +21,13 @@ export const CreateRequestPage = ({
     isSubmitting = false,
     errorMessage
 }: CreateRequestPageProps) => {
+    const todayDate = useMemo(() => {
+        const now = new Date();
+        const offsetMs = now.getTimezoneOffset() * 60000;
+        return new Date(now.getTime() - offsetMs).toISOString().split('T')[0];
+    }, []);
     const [description, setDescription] = useState('');
-    const [deadlineAt, setDeadlineAt] = useState('2026-12-14');
+    const [deadlineAt, setDeadlineAt] = useState(todayDate);
     const [fileName, setFileName] = useState('');
     const [file, setFile] = useState<File | null>(null);
 
@@ -98,6 +103,7 @@ export const CreateRequestPage = ({
                         type="date"
                         value={deadlineAt}
                         onChange={(event) => setDeadlineAt(event.target.value)}
+                        inputProps={{ min: todayDate }}
                         sx={{
                             backgroundColor: '#d9d9d9',
                             borderRadius: 999,

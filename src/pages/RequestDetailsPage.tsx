@@ -1,9 +1,11 @@
 import { useEffect, useMemo, useState } from 'react';
+import type { ReactNode } from 'react';
 import {
     Box,
     Button,
     MenuItem,
     Select,
+    SvgIcon,
     Stack,
     TextField,
     Typography
@@ -28,6 +30,11 @@ type OfferDecisionStatus = 'accepted' | 'rejected' | '';
 type OfferStatusOption = {
     value: OfferDecisionStatus;
     label: string;
+};
+
+type NotificationStyle = {
+    backgroundColor: string;
+    icon: ReactNode;
 };
 
 const statusOptions = [
@@ -99,27 +106,56 @@ const normalizeOfferStatus = (value: string | null): OfferDecisionStatus => {
     return '';
 };
 
-const getNotificationStyle = (status: string | null) => {
+const getNotificationStyle = (status: string | null): NotificationStyle => {
     if (status === 'accepted') {
-        return { backgroundColor: '#2e7d32', label: '✓' };
+        return {
+            backgroundColor: '#2e7d32',
+            icon: (
+                <SvgIcon fontSize="small" sx={{ color: '#fff' }}>
+                    <path d="M9 16.17 4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z" />
+                </SvgIcon>
+            )
+        };
     }
 
     if (status === 'submitted') {
-        return { backgroundColor: '#ed6c02', label: '+' };
+        return {
+            backgroundColor: '#ed6c02',
+            icon: (
+                <SvgIcon fontSize="small" sx={{ color: '#fff' }}>
+                    <path d="M19 13H13V19H11V13H5V11H11V5H13V11H19V13Z" />
+                </SvgIcon>
+            )
+        };
     }
 
     if (status === 'deleted') {
-        return { backgroundColor: '#c62828', label: '!' };
+         return {
+            backgroundColor: '#c62828',
+            icon: (
+                <SvgIcon fontSize="small" sx={{ color: '#fff' }}>
+                    <path d="M11 15h2v2h-2zm0-10h2v8h-2z" />
+                </SvgIcon>
+            )
+        };
     }
 
     if (status === 'rejected') {
-        return { backgroundColor: '#787878ff', label: '-' };
+        return {
+            backgroundColor: '#787878ff',
+            icon: (
+                <SvgIcon fontSize="small" sx={{ color: '#fff' }}>
+                    <path d="M19 13H5V11H19V13Z" />
+                </SvgIcon>
+            )
+        };
     }
 
-    return { backgroundColor: '#ffffffff', label: ' '};
+    return { backgroundColor: '#ffffffff', icon: null };
 };
 
 export const RequestDetailsPage = ({ request, userLogin, onBack }: RequestDetailsPageProps) => {
+    const [requestDetails, setRequestDetails] = useState<RequestWithOfferStats>(request);
     const initialStatus = (statusOptions.find((o) => o.value === request.status)?.value ?? 'open') as RequestStatus;
 
     const [status, setStatus] = useState<RequestStatus>(initialStatus);
@@ -142,6 +178,16 @@ export const RequestDetailsPage = ({ request, userLogin, onBack }: RequestDetail
         () => statusOptions.find((option) => option.value === status) ?? statusOptions[0],
         [status]
     );
+
+    const todayDate = useMemo(() => {
+        const now = new Date();
+        const offsetMs = now.getTimezoneOffset() * 60000;
+        return new Date(now.getTime() - offsetMs).toISOString().split('T')[0];
+    }, []);
+
+    useEffect(() => {
+        setRequestDetails(request);
+    }, [request]);
 
     useEffect(() => {
         const fetchOffers = async () => {
@@ -181,6 +227,18 @@ export const RequestDetailsPage = ({ request, userLogin, onBack }: RequestDetail
             return;
         }
 
+        if (deadlineChanged && deadline && deadline < todayDate) {
+            setErrorMessage('Дедлайн не может быть раньше текущей даты');
+            setSuccessMessage(null);
+            return;
+        }
+
+        if (deadlineChanged && status !== 'open' && baselineDeadline && deadline > baselineDeadline) {
+            setErrorMessage('Нельзя продлить дедлайн, если заявка не в статусе "Открыта"');
+            setSuccessMessage(null);
+            return;
+        }
+
         setIsSaving(true);
         setErrorMessage(null);
         setSuccessMessage(null);
@@ -204,6 +262,12 @@ export const RequestDetailsPage = ({ request, userLogin, onBack }: RequestDetail
                 setBaselineDeadline(nextDeadline);
                 setDeadline(nextDeadline);
             }
+            setRequestDetails((prev) => ({
+                ...prev,
+                status: response.request?.status ?? prev.status,
+                deadline_at: response.request?.deadline_at ?? prev.deadline_at,
+                updated_at: response.request?.updated_at ?? prev.updated_at
+            }));
             setSuccessMessage('Изменения сохранены');
         } catch (error) {
             setErrorMessage(error instanceof Error ? error.message : 'Не удалось сохранить изменения');
@@ -289,7 +353,7 @@ export const RequestDetailsPage = ({ request, userLogin, onBack }: RequestDetail
             >
                 <Typography variant="h6" fontWeight={600}>
 
-                    Номер заявки: {request.id}
+                    Номер заявки: {requestDetails.id}
                 </Typography>
                 <Stack direction="row" alignItems="center" spacing={1}>
                     <Box
@@ -354,18 +418,34 @@ export const RequestDetailsPage = ({ request, userLogin, onBack }: RequestDetail
                     gridTemplateColumns: { xs: '1fr', md: '1.4fr 1fr' }
                 }}
             >
-                <TextField
-                    value={request.description ?? ''}
-                    placeholder="Описание заявки"
-                    multiline
-                    minRows={6}
-                    InputProps={{
-                        readOnly: true
-                    }}
-                    sx={{
-                        borderRadius: 3
-                    }}
-                />
+                <Stack spacing={2}>
+                    <TextField
+                        value={requestDetails.description ?? ''}
+                        placeholder="Описание заявки"
+                        multiline
+                        minRows={6}
+                        InputProps={{
+                            readOnly: true
+                        }}
+                        sx={{
+                            borderRadius: 3
+                        }}
+                    />
+                    <Button
+                        variant="outlined"
+                        sx={{
+                            borderRadius: 999,
+                            textTransform: 'none',
+                            paddingX: 3,
+                            borderColor: '#1f1f1f',
+                            color: '#1f1f1f',
+                            backgroundColor: '#ffffff',
+                            width: 'fit-content'
+                        }}
+                    >
+                        Скачать файл заявки
+                    </Button>
+                </Stack>
                 <Box
                     sx={{
                         border: '1px solid rgba(0,0,0,0.3)',
@@ -374,10 +454,10 @@ export const RequestDetailsPage = ({ request, userLogin, onBack }: RequestDetail
                     }}
                 >
                     {[
-                        { label: 'Создатель заявки', value: request.id_user_web },
-                        { label: 'Создана', value: formatDate(request.created_at) },
-                        { label: 'Закрыта', value: formatDate(request.closed_at) },
-                        { label: 'Номер КП', value: request.id_offer ?? '-' },
+                        { label: 'Создатель заявки', value: requestDetails.id_user_web },
+                        { label: 'Создана', value: formatDate(requestDetails.created_at) },
+                        { label: 'Закрыта', value: formatDate(requestDetails.closed_at) },
+                        { label: 'Номер КП', value: requestDetails.id_offer ?? '-' },
                         {
                             label: 'Дедлайн сбора КП',
                             value: (
@@ -386,11 +466,12 @@ export const RequestDetailsPage = ({ request, userLogin, onBack }: RequestDetail
                                     size="small"
                                     value={deadline}
                                     onChange={(event) => setDeadline(event.target.value)}
+                                    inputProps={{ min: todayDate }}
                                     sx={{ minWidth: 150 }}
                                 />
                             )
                         },
-                        { label: 'Последнее изменение', value: formatDate(request.updated_at) }
+                        { label: 'Последнее изменение', value: formatDate(requestDetails.updated_at) }
                     ].map((row, index) => (
                         <Box
                             key={row.label}
@@ -483,6 +564,12 @@ export const RequestDetailsPage = ({ request, userLogin, onBack }: RequestDetail
                                 sx={{
                                     display: 'grid',
                                     gridTemplateColumns: '0.4fr 0.8fr 1.4fr 1.6fr 1.1fr 1.1fr 1fr 1fr',
+                                    borderRadius: 2,
+                                    overflow: 'hidden',
+                                    transition: 'background-color 0.2s ease',
+                                    '&:hover': {
+                                        backgroundColor: '#ffffff'
+                                    },
                                     borderBottom:
                                         index === offers.length - 1
                                             ? 'none'
@@ -496,14 +583,13 @@ export const RequestDetailsPage = ({ request, userLogin, onBack }: RequestDetail
                                             height: 28,
                                             borderRadius: 2,
                                             backgroundColor: notificationStyle.backgroundColor,
-                                            color: '#fff',
                                             display: 'flex',
                                             alignItems: 'center',
                                             justifyContent: 'center',
                                             fontWeight: 700
                                         }}
                                     >
-                                        {notificationStyle.label}
+                                        {notificationStyle.icon}
                                     </Box>
                                 </Box>
                                 <Box sx={{ padding: 1 }}>
@@ -554,6 +640,7 @@ export const RequestDetailsPage = ({ request, userLogin, onBack }: RequestDetail
                                                 event.target.value as OfferDecisionStatus
                                             )
                                         }
+                                        disabled={offer.status === 'deleted'}
                                         sx={{ minWidth: 140 }}
                                     >
                                         <MenuItem value="">
