@@ -11,6 +11,7 @@ import {
 import { updateRequest } from '@shared/api/updateRequest';
 import { apiConfig } from '@shared/api/client';
 import { getOffers } from '@shared/api/getOffers';
+import { updateOfferStatus } from '@shared/api/updateOfferStatus';
 import type { RequestWithOfferStats } from '@shared/api/getRequests';
 import type { OfferDetails } from '@shared/api/getOffers';
 
@@ -32,7 +33,7 @@ type OfferStatusOption = {
 const statusOptions = [
     { value: 'open', label: 'Открыта', color: '#2e7d32' },
     { value: 'review', label: 'На рассмотрении', color: '#ed6c02' },
-    { value: 'closed', label: 'Закрыта', color: '#1976d2' },
+    { value: 'closed', label: 'Закрыта', color: '#787878ff' },
     { value: 'cancelled', label: 'Отменена', color: '#d32f2f' }
 ] as const;
 
@@ -104,11 +105,15 @@ const getNotificationStyle = (status: string | null) => {
     }
 
     if (status === 'submitted') {
-        return { backgroundColor: '#2e7d32', label: '+' };
+        return { backgroundColor: '#ed6c02', label: '+' };
     }
 
     if (status === 'deleted') {
-        return { backgroundColor: '#c62828', label: '-' };
+        return { backgroundColor: '#c62828', label: '!' };
+    }
+
+    if (status === 'rejected') {
+        return { backgroundColor: '#787878ff', label: '-' };
     }
 
     return { backgroundColor: '#ffffffff', label: ' '};
@@ -207,11 +212,42 @@ export const RequestDetailsPage = ({ request, userLogin, onBack }: RequestDetail
         }
     };
 
-    const handleOfferStatusChange = (offerId: number, value: OfferDecisionStatus) => {
+    const handleOfferStatusChange = async (offerId: number, value: OfferDecisionStatus) => {
+        const previousStatus = offersStatusMap[offerId] ?? '';
+
         setOffersStatusMap((prev) => ({
             ...prev,
             [offerId]: value
         }));
+
+        if (!value) {
+            return;
+        }
+
+        try {
+            const response = await updateOfferStatus({
+                id_user_web: userLogin,
+                offer_id: offerId,
+                status: value
+            });
+            setOffers((prev) =>
+                prev.map((offer) =>
+                    offer.offer_id === offerId
+                        ? { ...offer, status: response.offer.status }
+                        : offer
+                )
+            );
+            setOffersStatusMap((prev) => ({
+                ...prev,
+                [offerId]: normalizeOfferStatus(response.offer.status)
+            }));
+        } catch (error) {
+            setOffersStatusMap((prev) => ({
+                ...prev,
+                [offerId]: previousStatus
+            }));
+            setOffersError(error instanceof Error ? error.message : 'Не удалось обновить статус оффера');
+        }
     };
 
     return (
@@ -437,7 +473,7 @@ export const RequestDetailsPage = ({ request, userLogin, onBack }: RequestDetail
                 {!offersLoading && !offersError &&
                     offers.map((offer, index) => {
                         const currentStatus = offersStatusMap[offer.offer_id] ?? '';
-                        const notificationStyle = getNotificationStyle(currentStatus);
+                        const notificationStyle = getNotificationStyle(offer.status);
                         const fileUrl = getFileUrl(offer.file_path);
                         const contactInfo = getContactInfo(offer);
                         const counterparty = offer.real_name ?? offer.tg_username ?? '-';
