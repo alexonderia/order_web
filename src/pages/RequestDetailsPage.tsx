@@ -120,7 +120,7 @@ const getNotificationStyle = (status: string | null): NotificationStyle => {
 
     if (status === 'submitted') {
         return {
-            backgroundColor: '#ed6c02',
+            backgroundColor: '#2e7d32',
             icon: (
                 <SvgIcon fontSize="small" sx={{ color: '#fff' }}>
                     <path d="M19 13H13V19H11V13H5V11H11V5H13V11H19V13Z" />

@@ -23,7 +23,9 @@ const cellSx = {
     borderRight: '1px solid rgba(0,0,0,0.3)',
     borderBottom: '1px solid rgba(0,0,0,0.3)',
     display: 'flex',
-    alignItems: 'center'
+    alignItems: 'center',
+    boxSizing: 'border-box',
+    minWidth: 0
 };
 
 type RequestsTableProps = {
@@ -103,7 +105,8 @@ export const RequestsTable = ({ requests, isLoading, onRowClick }: RequestsTable
                     sx={{
                         display: 'grid',
                         gridTemplateColumns: gridTemplate,
-                        alignItems: 'stretch'
+                        alignItems: 'stretch',
+                        width: '100%'
                     }}
                 >
                     {columns.map((column) => (
@@ -125,6 +128,7 @@ export const RequestsTable = ({ requests, isLoading, onRowClick }: RequestsTable
                                 display: 'grid',
                                 gridTemplateColumns: gridTemplate,
                                 alignItems: 'stretch',
+                                width: '100%',
                                 borderRadius: 2,
                                 overflow: 'hidden',
                                 transition: 'background-color 0.2s ease',
