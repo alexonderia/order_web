@@ -1,32 +1,23 @@
-import { Box, Chip, Stack, Typography } from '@mui/material';
+import { Chip, Stack, Typography } from '@mui/material';
 import type { RequestWithOfferStats } from '@shared/api/getRequests';
+import { DataTable } from '@shared/components/DataTable';
 
 const columns = [
-    'id',
-    'Описание',
-    'Статус',
-    'Прием КП до',
-    'Открыта',
-    'Закрыта',
-    'Номер КП',
-    'Создатель',
-    'Последнее обновление',
-    'Уведомление'
+    { key: 'id', label: 'id' },
+    { key: 'description', label: 'Описание' },
+    { key: 'status', label: 'Статус' },
+    { key: 'deadline', label: 'Прием КП до' },
+    { key: 'created', label: 'Открыта' },
+    { key: 'closed', label: 'Закрыта' },
+    { key: 'offer', label: 'Номер КП' },
+    { key: 'creator', label: 'Создатель' },
+    { key: 'updated', label: 'Последнее обновление' },
+    { key: 'notification', label: 'Уведомление' }
 ];
 
 
 const gridTemplate = '0.6fr 2fr 1.2fr 1.2fr 1.1fr 1.1fr 1.1fr 1.2fr 1.3fr 1.1fr';
 
-const cellSx = {
-    paddingY: 1.4,
-    paddingX: 1.5,
-    borderRight: '1px solid rgba(0,0,0,0.3)',
-    borderBottom: '1px solid rgba(0,0,0,0.3)',
-    display: 'flex',
-    alignItems: 'center',
-    boxSizing: 'border-box',
-    minWidth: 0
-};
 
 type RequestsTableProps = {
     requests: RequestWithOfferStats[];
@@ -86,96 +77,29 @@ const NotificationContent = ({ countSubmitted, countDeleted }: { countSubmitted:
 
 export const RequestsTable = ({ requests, isLoading, onRowClick }: RequestsTableProps) => {
     return (
-        <Box
-            sx={{
-                backgroundColor: '#d9d9d9',
-                borderRadius: 2,
-                padding: 2,
-                border: '1px solid rgba(0,0,0,0.3)',
-                overflow: 'hidden'
-            }}
-        >
-            <Box
-                sx={{
-                    display: 'flex',
-                    flexDirection: 'column'
-                }}
-            >
-                <Box
-                    sx={{
-                        display: 'grid',
-                        gridTemplateColumns: gridTemplate,
-                        alignItems: 'stretch',
-                        width: '100%'
-                    }}
-                >
-                    {columns.map((column) => (
-                        <Box key={column} sx={{ ...cellSx, fontWeight: 600 }}>
-                            <Typography variant="body2">{column}</Typography>
-                        </Box>
-                    ))}
-                </Box>
-                {isLoading && (
-                    <Box sx={{ padding: 2 }}>
-                        <Typography variant="body2">Загрузка...</Typography>
-                    </Box>
-                )}
-                {!isLoading &&
-                    requests.map((row) => (
-                        <Box
-                            key={row.id}
-                            sx={{
-                                display: 'grid',
-                                gridTemplateColumns: gridTemplate,
-                                alignItems: 'stretch',
-                                width: '100%',
-                                borderRadius: 2,
-                                overflow: 'hidden',
-                                transition: 'background-color 0.2s ease',
-                                '&:hover': {
-                                    backgroundColor: '#ffffff'
-                                },
-                                cursor: onRowClick ? 'pointer' : 'default'
-                            }}
-                            onClick={() => onRowClick?.(row)}
-                        >
-                            <Box sx={cellSx}>
-                                <Typography variant="body2">{row.id}</Typography>
-                            </Box>
-                            <Box sx={cellSx}>
-                                <Typography variant="body2">{row.description ?? '-'}</Typography>
-                            </Box>
-                            <Box sx={cellSx}>
-                                <Typography variant="body2">{row.status ?? '-'}</Typography>
-                            </Box>
-                            <Box sx={cellSx}>
-                                <Typography variant="body2">{formatDate(row.deadline_at)}</Typography>
-                            </Box>
-                            <Box sx={cellSx}>
-                                <Typography variant="body2">{formatDate(row.created_at)}</Typography>
-                            </Box>
-                            <Box sx={cellSx}>
-                                <Typography variant="body2">{formatDate(row.closed_at)}</Typography>
-                            </Box>
-                            <Box sx={cellSx}>
-                                <Typography variant="body2">{row.id_offer ?? '-'}</Typography>
-                            </Box>
-                            <Box sx={cellSx}>
-                                <Typography variant="body2">{row.id_user_web}</Typography>
-                            </Box>
-                            <Box sx={cellSx}>
-                                <Typography variant="body2">{formatDate(row.updated_at, true)}</Typography>
-                            </Box>
-                            <Box sx={{ ...cellSx, borderRight: 'none' }}>
-                                <NotificationContent
-                                    countSubmitted={row.count_submitted ?? 0}
-                                    countDeleted={row.count_deleted_alert ?? 0}
-                                />
-                            </Box>
-                        </Box>
-                    ))
-                }
-            </Box>
-        </Box>
+        <DataTable
+            columns={columns}
+            rows={requests}
+            gridTemplateColumns={gridTemplate}
+            rowKey={(row) => row.id}
+            isLoading={isLoading}
+            emptyMessage="Заявки не найдены."
+            onRowClick={onRowClick}
+            renderRow={(row) => [
+                <Typography variant="body2">{row.id}</Typography>,
+                <Typography variant="body2">{row.description ?? '-'}</Typography>,
+                <Typography variant="body2">{row.status ?? '-'}</Typography>,
+                <Typography variant="body2">{formatDate(row.deadline_at)}</Typography>,
+                <Typography variant="body2">{formatDate(row.created_at)}</Typography>,
+                <Typography variant="body2">{formatDate(row.closed_at)}</Typography>,
+                <Typography variant="body2">{row.id_offer ?? '-'}</Typography>,
+                <Typography variant="body2">{row.id_user_web}</Typography>,
+                <Typography variant="body2">{formatDate(row.updated_at, true)}</Typography>,
+                <NotificationContent
+                    countSubmitted={row.count_submitted ?? 0}
+                    countDeleted={row.count_deleted_alert ?? 0}
+                />
+            ]}
+        />
     );
 };

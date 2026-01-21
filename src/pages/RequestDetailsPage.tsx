@@ -1,11 +1,9 @@
 import { useEffect, useMemo, useState } from 'react';
-import type { ReactNode } from 'react';
 import {
     Box,
     Button,
     MenuItem,
     Select,
-    SvgIcon,
     Stack,
     TextField,
     Typography
@@ -14,8 +12,11 @@ import { updateRequest } from '@shared/api/updateRequest';
 import { getOffers } from '@shared/api/getOffers';
 import { updateOfferStatus } from '@shared/api/updateOfferStatus';
 import type { RequestWithOfferStats } from '@shared/api/getRequests';
-import type { OfferDetails } from '@shared/api/getOffers';
 import { getDownloadUrl } from '@shared/api/fileDownload';
+import { OffersTable } from '@features/requests/components/OffersTable';
+import type { OfferDecisionStatus, OfferStatusOption } from '@features/requests/components/OffersTable';
+import type { OfferDetails } from '@shared/api/getOffers';
+import { DataTable } from '@shared/components/DataTable';
 
 type RequestDetailsPageProps = {
     request: RequestWithOfferStats;
@@ -25,17 +26,6 @@ type RequestDetailsPageProps = {
 
 type RequestStatus = 'open' | 'review' | 'closed' | 'cancelled';
 
-type OfferDecisionStatus = 'accepted' | 'rejected' | '';
-
-type OfferStatusOption = {
-    value: OfferDecisionStatus;
-    label: string;
-};
-
-type NotificationStyle = {
-    backgroundColor: string;
-    icon: ReactNode;
-};
 
 const statusOptions = [
     { value: 'open', label: 'Открыта', color: '#2e7d32' },
@@ -74,18 +64,6 @@ const toDateInputValue = (value: string | null) => {
 };
 
 
-const getContactInfo = (offer: OfferDetails) => {
-    const parts = [
-        offer.tg_username ? `Telegram: ${offer.tg_username}` : null,
-        offer.phone ? `Телефон: ${offer.phone}` : null,
-        offer.mail ? `Email: ${offer.mail}` : null,
-        offer.address ? `Адрес: ${offer.address}` : null,
-        offer.note ? `Комментарий: ${offer.note}` : null
-    ].filter(Boolean) as string[];
-
-    return parts.length > 0 ? parts : ['-'];
-};
-
 const normalizeOfferStatus = (value: string | null): OfferDecisionStatus => {
     if (value === 'accepted' || value === 'rejected') {
         return value;
@@ -94,53 +72,10 @@ const normalizeOfferStatus = (value: string | null): OfferDecisionStatus => {
     return '';
 };
 
-const getNotificationStyle = (status: string | null): NotificationStyle => {
-    if (status === 'accepted') {
-        return {
-            backgroundColor: '#2e7d32',
-            icon: (
-                <SvgIcon fontSize="small" sx={{ color: '#fff' }}>
-                    <path d="M9 16.17 4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z" />
-                </SvgIcon>
-            )
-        };
-    }
-
-    if (status === 'submitted') {
-        return {
-            backgroundColor: '#2e7d32',
-            icon: (
-                <SvgIcon fontSize="small" sx={{ color: '#fff' }}>
-                    <path d="M19 13H13V19H11V13H5V11H11V5H13V11H19V13Z" />
-                </SvgIcon>
-            )
-        };
-    }
-
-    if (status === 'deleted') {
-         return {
-            backgroundColor: '#c62828',
-            icon: (
-                <SvgIcon fontSize="small" sx={{ color: '#fff' }}>
-                    <path d="M11 15h2v2h-2zm0-10h2v8h-2z" />
-                </SvgIcon>
-            )
-        };
-    }
-
-    if (status === 'rejected') {
-        return {
-            backgroundColor: '#787878ff',
-            icon: (
-                <SvgIcon fontSize="small" sx={{ color: '#fff' }}>
-                    <path d="M19 13H5V11H19V13Z" />
-                </SvgIcon>
-            )
-        };
-    }
-
-    return { backgroundColor: '#ffffffff', icon: null };
-};
+const detailsColumns = [
+    { key: 'label', label: 'Параметр' },
+    { key: 'value', label: 'Значение' }
+];
 
 export const RequestDetailsPage = ({ request, userLogin, onBack }: RequestDetailsPageProps) => {
     const [requestDetails, setRequestDetails] = useState<RequestWithOfferStats>(request);
@@ -309,6 +244,28 @@ export const RequestDetailsPage = ({ request, userLogin, onBack }: RequestDetail
         }
     };
 
+    const detailsRows = [
+        { id: 'creator', label: 'Создатель заявки', value: requestDetails.id_user_web },
+        { id: 'created', label: 'Создана', value: formatDate(requestDetails.created_at) },
+        { id: 'closed', label: 'Закрыта', value: formatDate(requestDetails.closed_at) },
+        { id: 'offer', label: 'Номер КП', value: requestDetails.id_offer ?? '-' },
+        {
+            id: 'deadline',
+            label: 'Дедлайн сбора КП',
+            value: (
+                <TextField
+                    type="date"
+                    size="small"
+                    value={deadline}
+                    onChange={(event) => setDeadline(event.target.value)}
+                    inputProps={{ min: todayDate }}
+                    sx={{ minWidth: 150 }}
+                />
+            )
+        },
+        { id: 'updated', label: 'Последнее изменение', value: formatDate(requestDetails.updated_at) }
+    ];
+
     return (
         <Box sx={{ minHeight: '100vh', padding: { xs: 2, md: 4 } }}>
             <Stack direction="row" justifyContent="space-between" alignItems="center" mb={3}>
@@ -427,34 +384,24 @@ export const RequestDetailsPage = ({ request, userLogin, onBack }: RequestDetail
                         }}
                     />
                     {requestFileUrl ? (
-                        <Typography
+                        <Button
+                            variant="outlined"
+                            sx={{
+                                borderRadius: 999,
+                                textTransform: 'none',
+                                paddingX: 3,
+                                borderColor: '#1f1f1f',
+                                color: '#1f1f1f',
+                                backgroundColor: '#ffffff',
+                                width: 'fit-content'
+                            }}
                             component="a"
                             href={requestFileUrl}
                             target="_blank"
                             rel="noreferrer"
-                            variant="body2"
-                            sx={{ color: '#1f1f1f', textDecoration: 'underline' }}
                         >
-                            Скачать
-                        </Typography>
-                        // <Button
-                        //     variant="outlined"
-                        //     sx={{
-                        //         borderRadius: 999,
-                        //         textTransform: 'none',
-                        //         paddingX: 3,
-                        //         borderColor: '#1f1f1f',
-                        //         color: '#1f1f1f',
-                        //         backgroundColor: '#ffffff',
-                        //         width: 'fit-content'
-                        //     }}
-                        //     component="a"
-                        //     href={requestFileUrl}
-                        //     target="_blank"
-                        //     rel="noreferrer"
-                        // >
-                        //     Скачать файл заявки
-                        // </Button>
+                            Скачать файл заявки
+                        </Button>
                     ) : (
                         <Button
                             variant="outlined"
@@ -473,219 +420,31 @@ export const RequestDetailsPage = ({ request, userLogin, onBack }: RequestDetail
                         </Button>
                     )}
                 </Stack>
-                <Box
-                    sx={{
-                        border: '1px solid rgba(0,0,0,0.3)',
-                        borderRadius: 1,
-                        overflow: 'hidden'
-                    }}
-                >
-                    {[
-                        { label: 'Создатель заявки', value: requestDetails.id_user_web },
-                        { label: 'Создана', value: formatDate(requestDetails.created_at) },
-                        { label: 'Закрыта', value: formatDate(requestDetails.closed_at) },
-                        { label: 'Номер КП', value: requestDetails.id_offer ?? '-' },
-                        {
-                            label: 'Дедлайн сбора КП',
-                            value: (
-                                <TextField
-                                    type="date"
-                                    size="small"
-                                    value={deadline}
-                                    onChange={(event) => setDeadline(event.target.value)}
-                                    inputProps={{ min: todayDate }}
-                                    sx={{ minWidth: 150 }}
-                                />
-                            )
-                        },
-                        { label: 'Последнее изменение', value: formatDate(requestDetails.updated_at) }
-                    ].map((row, index) => (
-                        <Box
-                            key={row.label}
-                            sx={{
-                                display: 'grid',
-                                gridTemplateColumns: '1fr 1fr',
-                                borderBottom:
-                                    index === 5 ? 'none' : '1px solid rgba(0,0,0,0.3)'
-                            }}
-                        >
-                            <Box sx={{ padding: 1.2 }}>
-                                <Typography variant="body2">{row.label}</Typography>
-                            </Box>
-                            <Box
-                                sx={{
-                                    padding: 1.2,
-                                    borderLeft: '1px solid rgba(0,0,0,0.3)',
-                                    display: 'flex',
-                                    alignItems: 'center',
-                                    justifyContent: 'flex-start'
-                                }}
-                            >
-                                {typeof row.value === 'string' || typeof row.value === 'number' ? (
-                                    <Typography variant="body2">{row.value}</Typography>
-                                ) : (
-                                    row.value
-                                )}
-                            </Box>
-                        </Box>
-                    ))}
-                </Box>
+                <DataTable
+                    columns={detailsColumns}
+                    rows={detailsRows}
+                    gridTemplateColumns="1fr 1fr"
+                    rowKey={(row) => row.id}
+                    showHeader={false}
+                    renderRow={(row) => [
+                        <Typography variant="body2">{row.label}</Typography>,
+                        typeof row.value === 'string' || typeof row.value === 'number' ? (
+                            <Typography variant="body2">{row.value}</Typography>
+                        ) : (
+                            row.value
+                        )
+                    ]}
+                />
             </Box>
-
-            <Box
-                sx={{
-                    marginTop: 4,
-                    backgroundColor: '#d9d9d9',
-                    borderRadius: 2,
-                    padding: 2,
-                    border: '1px solid rgba(0,0,0,0.3)'
-                }}
-            >
-                <Box
-                    sx={{
-                        display: 'grid',
-                        gridTemplateColumns: '0.4fr 0.8fr 1.4fr 1.6fr 1.1fr 1.1fr 1fr 1fr',
-                        borderBottom: '1px solid rgba(0,0,0,0.3)'
-                    }}
-                >
-                    {[
-                        '',
-                        'Номер КП',
-                        'Контрагент',
-                        'Контакты',
-                        'Дата создания',
-                        'Дата изменения',
-                        'КП',
-                        'Статус'
-                    ].map((column) => (
-                        <Box key={column} sx={{ padding: 1, fontWeight: 600 }}>
-                            <Typography variant="body2">{column}</Typography>
-                        </Box>
-                    ))}
-                </Box>
-                {offersLoading && (
-                    <Box sx={{ padding: 2 }}>
-                        <Typography variant="body2">Загрузка офферов...</Typography>
-                    </Box>
-                )}
-                {offersError && !offersLoading && (
-                    <Box sx={{ padding: 2 }}>
-                        <Typography color="error">{offersError}</Typography>
-                    </Box>
-                )}
-                {!offersLoading && !offersError && offers.length === 0 && (
-                    <Box sx={{ padding: 2 }}>
-                        <Typography variant="body2">Офферы пока не получены.</Typography>
-                    </Box>
-                )}
-                {!offersLoading && !offersError &&
-                    offers.map((offer, index) => {
-                        const currentStatus = offersStatusMap[offer.offer_id] ?? '';
-                        const notificationStyle = getNotificationStyle(offer.status);
-                        const fileUrl = getDownloadUrl(offer.id_file, offer.file_path);
-                        const contactInfo = getContactInfo(offer);
-                        const counterparty = offer.real_name ?? offer.tg_username ?? '-';
-                        return (
-                            <Box
-                                key={offer.offer_id}
-                                sx={{
-                                    display: 'grid',
-                                    gridTemplateColumns: '0.4fr 0.8fr 1.4fr 1.6fr 1.1fr 1.1fr 1fr 1fr',
-                                    borderRadius: 2,
-                                    overflow: 'hidden',
-                                    transition: 'background-color 0.2s ease',
-                                    '&:hover': {
-                                        backgroundColor: '#ffffff'
-                                    },
-                                    borderBottom:
-                                        index === offers.length - 1
-                                            ? 'none'
-                                            : '1px solid rgba(0,0,0,0.3)'
-                                }}
-                            >
-                                <Box sx={{ padding: 1, display: 'flex', justifyContent: 'center' }}>
-                                    <Box
-                                        sx={{
-                                            width: 28,
-                                            height: 28,
-                                            borderRadius: 2,
-                                            backgroundColor: notificationStyle.backgroundColor,
-                                            display: 'flex',
-                                            alignItems: 'center',
-                                            justifyContent: 'center',
-                                            fontWeight: 700
-                                        }}
-                                    >
-                                        {notificationStyle.icon}
-                                    </Box>
-                                </Box>
-                                <Box sx={{ padding: 1 }}>
-                                    <Typography variant="body2">{offer.offer_id}</Typography>
-                                </Box>
-                                <Box sx={{ padding: 1 }}>
-                                    <Typography variant="body2">{counterparty}</Typography>
-                                </Box>
-                                <Box sx={{ padding: 1 }}>
-                                    <Stack spacing={0.5}>
-                                        {contactInfo.map((item) => (
-                                            <Typography key={item} variant="body2">
-                                                {item}
-                                            </Typography>
-                                        ))}
-                                    </Stack>
-                                </Box>
-                                <Box sx={{ padding: 1 }}>
-                                    <Typography variant="body2">{formatDate(offer.created_at)}</Typography>
-                                </Box>
-                                <Box sx={{ padding: 1 }}>
-                                    <Typography variant="body2">{formatDate(offer.updated_at)}</Typography>
-                                </Box>
-                                <Box sx={{ padding: 1 }}>
-                                    {fileUrl ? (
-                                        <Typography
-                                            component="a"
-                                            href={fileUrl}
-                                            target="_blank"
-                                            rel="noreferrer"
-                                            variant="body2"
-                                            sx={{ color: '#1f1f1f', textDecoration: 'underline' }}
-                                        >
-                                            Скачать
-                                        </Typography>
-                                    ) : (
-                                        <Typography variant="body2">-</Typography>
-                                    )}
-                                </Box>
-                                <Box sx={{ padding: 1 }}>
-                                    <Select
-                                        size="small"
-                                        value={currentStatus}
-                                        displayEmpty
-                                        onChange={(event) =>
-                                            handleOfferStatusChange(
-                                                offer.offer_id,
-                                                event.target.value as OfferDecisionStatus
-                                            )
-                                        }
-                                        disabled={offer.status === 'deleted'}
-                                        sx={{ minWidth: 140 }}
-                                    >
-                                        <MenuItem value="">
-                                            <Typography variant="body2" color="text.secondary">
-                                                Выберите
-                                            </Typography>
-                                        </MenuItem>
-                                        {offerStatusOptions.map((option) => (
-                                            <MenuItem key={option.value} value={option.value}>
-                                                {option.label}
-                                            </MenuItem>
-                                        ))}
-                                    </Select>
-                                </Box>
-                            </Box>
-                        );
-                    })
-                }
+            <Box sx={{ marginTop: 4 }}>
+                <OffersTable
+                    offers={offers}
+                    statusMap={offersStatusMap}
+                    isLoading={offersLoading}
+                    errorMessage={offersError}
+                    statusOptions={offerStatusOptions}
+                    onStatusChange={handleOfferStatusChange}
+                />
             </Box>
         </Box>
     );
