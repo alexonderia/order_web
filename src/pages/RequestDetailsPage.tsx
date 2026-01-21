@@ -11,11 +11,11 @@ import {
     Typography
 } from '@mui/material';
 import { updateRequest } from '@shared/api/updateRequest';
-import { apiConfig } from '@shared/api/client';
 import { getOffers } from '@shared/api/getOffers';
 import { updateOfferStatus } from '@shared/api/updateOfferStatus';
 import type { RequestWithOfferStats } from '@shared/api/getRequests';
 import type { OfferDetails } from '@shared/api/getOffers';
+import { getDownloadUrl } from '@shared/api/fileDownload';
 
 type RequestDetailsPageProps = {
     request: RequestWithOfferStats;
@@ -73,18 +73,6 @@ const toDateInputValue = (value: string | null) => {
     return datePart ?? '';
 };
 
-const getFileUrl = (filePath: string | null) => {
-    if (!filePath) {
-        return null;
-    }
-
-    const baseUrl = apiConfig.baseUrl.trim();
-    if (!baseUrl) {
-        return `/${filePath}`;
-    }
-
-    return `${baseUrl.replace(/\/$/, '')}/${filePath.replace(/^\//, '')}`;
-};
 
 const getContactInfo = (offer: OfferDetails) => {
     const parts = [
@@ -178,6 +166,13 @@ export const RequestDetailsPage = ({ request, userLogin, onBack }: RequestDetail
         () => statusOptions.find((option) => option.value === status) ?? statusOptions[0],
         [status]
     );
+    const requestFileUrl = useMemo(
+        () =>
+            requestDetails.file?.download_url ??
+            getDownloadUrl(requestDetails.file?.id ?? requestDetails.id_file, requestDetails.file_path ?? null),
+        [requestDetails.file?.download_url, requestDetails.file?.id, requestDetails.id_file, requestDetails.file_path]
+    );
+
 
     const todayDate = useMemo(() => {
         const now = new Date();
@@ -431,20 +426,52 @@ export const RequestDetailsPage = ({ request, userLogin, onBack }: RequestDetail
                             borderRadius: 3
                         }}
                     />
-                    <Button
-                        variant="outlined"
-                        sx={{
-                            borderRadius: 999,
-                            textTransform: 'none',
-                            paddingX: 3,
-                            borderColor: '#1f1f1f',
-                            color: '#1f1f1f',
-                            backgroundColor: '#ffffff',
-                            width: 'fit-content'
-                        }}
-                    >
-                        Скачать файл заявки
-                    </Button>
+                    {requestFileUrl ? (
+                        <Typography
+                            component="a"
+                            href={requestFileUrl}
+                            target="_blank"
+                            rel="noreferrer"
+                            variant="body2"
+                            sx={{ color: '#1f1f1f', textDecoration: 'underline' }}
+                        >
+                            Скачать
+                        </Typography>
+                        // <Button
+                        //     variant="outlined"
+                        //     sx={{
+                        //         borderRadius: 999,
+                        //         textTransform: 'none',
+                        //         paddingX: 3,
+                        //         borderColor: '#1f1f1f',
+                        //         color: '#1f1f1f',
+                        //         backgroundColor: '#ffffff',
+                        //         width: 'fit-content'
+                        //     }}
+                        //     component="a"
+                        //     href={requestFileUrl}
+                        //     target="_blank"
+                        //     rel="noreferrer"
+                        // >
+                        //     Скачать файл заявки
+                        // </Button>
+                    ) : (
+                        <Button
+                            variant="outlined"
+                            sx={{
+                                borderRadius: 999,
+                                textTransform: 'none',
+                                paddingX: 3,
+                                borderColor: '#1f1f1f',
+                                color: '#1f1f1f',
+                                backgroundColor: '#ffffff',
+                                width: 'fit-content'
+                            }}
+                            disabled
+                        >
+                            Скачать файл заявки
+                        </Button>
+                    )}
                 </Stack>
                 <Box
                     sx={{
@@ -555,7 +582,7 @@ export const RequestDetailsPage = ({ request, userLogin, onBack }: RequestDetail
                     offers.map((offer, index) => {
                         const currentStatus = offersStatusMap[offer.offer_id] ?? '';
                         const notificationStyle = getNotificationStyle(offer.status);
-                        const fileUrl = getFileUrl(offer.file_path);
+                        const fileUrl = getDownloadUrl(offer.id_file, offer.file_path);
                         const contactInfo = getContactInfo(offer);
                         const counterparty = offer.real_name ?? offer.tg_username ?? '-';
                         return (

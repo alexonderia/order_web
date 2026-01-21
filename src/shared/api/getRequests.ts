@@ -4,6 +4,12 @@ export type RequestWithOfferStats = {
   id: number;
   id_user_web: string;
   id_file: number;
+  file_path?: string | null;
+  file?: {
+    id: number;
+    path: string | null;
+    download_url: string;
+  } | null;
   status: string | null;
   deadline_at: string | null;
   closed_at: string | null;
