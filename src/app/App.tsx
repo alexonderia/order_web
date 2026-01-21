@@ -125,6 +125,7 @@ export const App = () => {
         request={selectedRequest}
         userLogin={userLogin ?? ''}
         onBack={() => setActivePage('requests')}
+        onLogout={handleLogout}
       />
     ) : (
       <RequestsPage

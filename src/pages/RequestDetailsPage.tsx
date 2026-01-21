@@ -13,6 +13,7 @@ import { getOffers } from '@shared/api/getOffers';
 import { updateOfferStatus } from '@shared/api/updateOfferStatus';
 import type { RequestWithOfferStats } from '@shared/api/getRequests';
 import { getDownloadUrl } from '@shared/api/fileDownload';
+import { markDeletedAlertViewed } from '@shared/api/markDeletedAlertViewed';
 import { OffersTable } from '@features/requests/components/OffersTable';
 import type { OfferDecisionStatus, OfferStatusOption } from '@features/requests/components/OffersTable';
 import type { OfferDetails } from '@shared/api/getOffers';
@@ -21,6 +22,7 @@ import { DataTable } from '@shared/components/DataTable';
 type RequestDetailsPageProps = {
     request: RequestWithOfferStats;
     userLogin: string;
+    onLogout?: () => void;
     onBack?: () => void;
 };
 
@@ -77,7 +79,7 @@ const detailsColumns = [
     { key: 'value', label: 'Значение' }
 ];
 
-export const RequestDetailsPage = ({ request, userLogin, onBack }: RequestDetailsPageProps) => {
+export const RequestDetailsPage = ({ request, userLogin, onBack, onLogout }: RequestDetailsPageProps) => {
     const [requestDetails, setRequestDetails] = useState<RequestWithOfferStats>(request);
     const initialStatus = (statusOptions.find((o) => o.value === request.status)?.value ?? 'open') as RequestStatus;
 
@@ -91,6 +93,7 @@ export const RequestDetailsPage = ({ request, userLogin, onBack }: RequestDetail
     const [isSaving, setIsSaving] = useState(false);
     const [errorMessage, setErrorMessage] = useState<string | null>(null);
     const [successMessage, setSuccessMessage] = useState<string | null>(null);
+    const [isClearingDeletedAlert, setIsClearingDeletedAlert] = useState(false);
 
     const [offers, setOffers] = useState<OfferDetails[]>([]);
     const [offersStatusMap, setOffersStatusMap] = useState<Record<number, OfferDecisionStatus>>({});
@@ -107,7 +110,7 @@ export const RequestDetailsPage = ({ request, userLogin, onBack }: RequestDetail
             getDownloadUrl(requestDetails.file?.id ?? requestDetails.id_file, requestDetails.file_path ?? null),
         [requestDetails.file?.download_url, requestDetails.file?.id, requestDetails.id_file, requestDetails.file_path]
     );
-
+    const hasDeletedAlert = (requestDetails.count_deleted_alert ?? 0) > 0;
 
     const todayDate = useMemo(() => {
         const now = new Date();
@@ -244,6 +247,30 @@ export const RequestDetailsPage = ({ request, userLogin, onBack }: RequestDetail
         }
     };
 
+    const handleDeletedAlertViewed = async () => {
+        if (!hasDeletedAlert) {
+            return;
+        }
+
+        setIsClearingDeletedAlert(true);
+        setErrorMessage(null);
+        try {
+            const response = await markDeletedAlertViewed({
+                id_user_web: userLogin,
+                request_id: requestDetails.id
+            });
+            setRequestDetails((prev) => ({
+                ...prev,
+                count_deleted_alert: response.request_offer_stats.count_deleted_alert,
+                updated_at: response.request_offer_stats.updated_at ?? prev.updated_at
+            }));
+        } catch (error) {
+            setErrorMessage(error instanceof Error ? error.message : 'Не удалось отметить уведомление');
+        } finally {
+            setIsClearingDeletedAlert(false);
+        }
+    };
+
     const detailsRows = [
         { id: 'creator', label: 'Создатель заявки', value: requestDetails.id_user_web },
         { id: 'created', label: 'Создана', value: formatDate(requestDetails.created_at) },
@@ -292,6 +319,7 @@ export const RequestDetailsPage = ({ request, userLogin, onBack }: RequestDetail
                         color: '#1f1f1f',
                         backgroundColor: '#d9d9d9'
                     }}
+                    onClick={onLogout}
                 >
                     Выйти
                 </Button>
@@ -418,6 +446,36 @@ export const RequestDetailsPage = ({ request, userLogin, onBack }: RequestDetail
                         >
                             Скачать файл заявки
                         </Button>
+
+                    )}
+                    {hasDeletedAlert && (
+                        <Button
+                            variant="contained"
+                            sx={{
+                                borderRadius: 999,
+                                textTransform: 'none',
+                                paddingX: 3,
+                                width: 'fit-content',
+                                backgroundColor: '#d32f2f',
+                                color: '#ffffff',
+                                boxShadow: 'none',
+
+                                '&:hover': {
+                                    backgroundColor: '#b71c1c', // нормальный hover
+                                    boxShadow: 'none'
+                                },
+
+                                '&:disabled': {
+                                    backgroundColor: '#ef9a9a',
+                                    color: '#ffffff'
+                                }
+                            }}
+                            onClick={handleDeletedAlertViewed}
+                            disabled={isClearingDeletedAlert}
+                        >
+                            {isClearingDeletedAlert ? 'Отмечаем...' : 'Уведомлен об отмене сделки'}
+                        </Button>
+
                     )}
                 </Stack>
                 <DataTable
@@ -435,6 +493,7 @@ export const RequestDetailsPage = ({ request, userLogin, onBack }: RequestDetail
                         )
                     ]}
                 />
+
             </Box>
             <Box sx={{ marginTop: 4 }}>
                 <OffersTable
