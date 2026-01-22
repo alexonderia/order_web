@@ -3,10 +3,10 @@ services:
     build: .
     ports:
       - "3000:80"
-    networks:
-      - project_net
+#     networks:
+#       - project_net
 
-networks:
-  project_net:
-    external: true
-    name: project_net
+# networks:
+#   project_net:
+#     external: true
+#     name: project_net

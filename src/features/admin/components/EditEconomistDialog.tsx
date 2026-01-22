@@ -173,7 +173,7 @@ export const EditEconomistDialog = ({
               borderColor: '#1f1f1f',
               color: '#1f1f1f'
             }}
-            onClick={handleSave}
+            onClick={() => void handleSave()}
             disabled={isSubmitting || !canSubmit}
           >
             Сохранить изменения

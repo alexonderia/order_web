@@ -38,9 +38,9 @@ export const RequestsPage = ({ onCreateRequest, onLogout, userLogin, onRequestSe
     );
 
     useEffect(() => {
-        fetchRequests(true);
+        void fetchRequests(true);
         const intervalId = window.setInterval(() => {
-            fetchRequests(false);
+            void fetchRequests(false);
         }, pollIntervalMs);
         return () => window.clearInterval(intervalId);
     }, [fetchRequests, pollIntervalMs]);

@@ -41,7 +41,6 @@ export const AdminPage = ({ onLogout }: AdminPageProps) => {
     if (showLoading) {
       setIsLoadingEconomists(true);
     }
-    setIsLoadingEconomists(true);
     setErrorMessage(null);
     try {
       const data = await getWebUsersByRole(ECONOMIST_ROLE_ID);
@@ -59,7 +58,6 @@ export const AdminPage = ({ onLogout }: AdminPageProps) => {
     if (showLoading) {
       setIsLoadingContractors(true);
     }
-    setIsLoadingContractors(true);
     setErrorMessage(null);
     try {
       const data = await getTelegramUsers();
@@ -74,11 +72,11 @@ export const AdminPage = ({ onLogout }: AdminPageProps) => {
   }, []);
 
   useEffect(() => {
-    fetchEconomists(true);
-    fetchContractors(true);
+    void fetchEconomists(true);
+    void fetchContractors(true);
     const intervalId = window.setInterval(() => {
-      fetchEconomists(false);
-      fetchContractors(false);
+      void fetchEconomists(false);
+      void fetchContractors(false);
     }, pollIntervalMs);
     return () => window.clearInterval(intervalId);
   }, [fetchEconomists, fetchContractors, pollIntervalMs]);

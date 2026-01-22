@@ -173,11 +173,11 @@ export const RequestDetailsPage = ({ request, userLogin, onBack, onLogout }: Req
     }, [baselineDeadline, baselineStatus, deadline, request.id, status, userLogin]);
 
     useEffect(() => {
-        fetchOffers(true);
-        fetchRequestDetails();
+        void fetchOffers(true);
+        void fetchRequestDetails();
         const intervalId = window.setInterval(() => {
-            fetchOffers(false);
-            fetchRequestDetails();
+            void fetchOffers(false);
+            void fetchRequestDetails();
         }, pollIntervalMs);
         return () => window.clearInterval(intervalId);
     }, [fetchOffers, fetchRequestDetails, pollIntervalMs]);
@@ -409,7 +409,7 @@ export const RequestDetailsPage = ({ request, userLogin, onBack, onLogout }: Req
                         color: '#1f1f1f',
                         backgroundColor: '#d9d9d9'
                     }}
-                    onClick={handleSave}
+                    onClick={() => void handleSave()}
                     disabled={isSaving}
                 >
                     {isSaving ? 'Сохранение...' : 'Сохранить изменения'}
@@ -508,7 +508,7 @@ export const RequestDetailsPage = ({ request, userLogin, onBack, onLogout }: Req
                                     color: '#ffffff'
                                 }
                             }}
-                            onClick={handleDeletedAlertViewed}
+                            onClick={() => void handleDeletedAlertViewed()}
                             disabled={isClearingDeletedAlert}
                         >
                             {isClearingDeletedAlert ? 'Отмечаем...' : 'Уведомлен об отмене сделки'}
@@ -540,7 +540,7 @@ export const RequestDetailsPage = ({ request, userLogin, onBack, onLogout }: Req
                     isLoading={offersLoading}
                     errorMessage={offersError}
                     statusOptions={offerStatusOptions}
-                    onStatusChange={handleOfferStatusChange}
+                    onStatusChange={(offerId, value) => void handleOfferStatusChange(offerId, value)}
                 />
             </Box>
         </Box>
