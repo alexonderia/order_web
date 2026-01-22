@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import {
     Box,
     Button,
@@ -12,6 +12,7 @@ import { updateRequest } from '@shared/api/updateRequest';
 import { getOffers } from '@shared/api/getOffers';
 import { updateOfferStatus } from '@shared/api/updateOfferStatus';
 import type { RequestWithOfferStats } from '@shared/api/getRequests';
+import { getRequests } from '@shared/api/getRequests';
 import { getDownloadUrl } from '@shared/api/fileDownload';
 import { markDeletedAlertViewed } from '@shared/api/markDeletedAlertViewed';
 import { OffersTable } from '@features/requests/components/OffersTable';
@@ -99,6 +100,7 @@ export const RequestDetailsPage = ({ request, userLogin, onBack, onLogout }: Req
     const [offersStatusMap, setOffersStatusMap] = useState<Record<number, OfferDecisionStatus>>({});
     const [offersLoading, setOffersLoading] = useState(false);
     const [offersError, setOffersError] = useState<string | null>(null);
+    const pollIntervalMs = 10000;
 
     const statusConfig = useMemo(
         () => statusOptions.find((option) => option.value === status) ?? statusOptions[0],
@@ -122,9 +124,11 @@ export const RequestDetailsPage = ({ request, userLogin, onBack, onLogout }: Req
         setRequestDetails(request);
     }, [request]);
 
-    useEffect(() => {
-        const fetchOffers = async () => {
-            setOffersLoading(true);
+    const fetchOffers = useCallback(
+        async (showLoading: boolean) => {
+            if (showLoading) {
+                setOffersLoading(true);
+            }
             setOffersError(null);
             try {
                 const data = await getOffers({ requestId: request.id, userLogin });
@@ -137,13 +141,47 @@ export const RequestDetailsPage = ({ request, userLogin, onBack, onLogout }: Req
             } catch (error) {
                 setOffersError(error instanceof Error ? error.message : 'Не удалось загрузить офферы');
             } finally {
-                setOffersLoading(false);
+                if (showLoading) {
+                    setOffersLoading(false);
+                }
             }
-        };
+        },
+        [request.id, userLogin]
+    );
 
-        fetchOffers();
-    }, [request.id, userLogin]);
+    const fetchRequestDetails = useCallback(async () => {
+        try {
+            const data = await getRequests({ id_user_web: userLogin });
+            const nextRequest = data.requests.find((item) => item.id === request.id);
+            if (!nextRequest) {
+                return;
+            }
+            setRequestDetails(nextRequest);
+            const hasLocalChanges = status !== baselineStatus || deadline !== baselineDeadline;
+            if (!hasLocalChanges) {
+                const nextStatus =
+                    (statusOptions.find((o) => o.value === nextRequest.status)?.value ?? 'open') as RequestStatus;
+                const nextDeadline = toDateInputValue(nextRequest.deadline_at);
+                setStatus(nextStatus);
+                setBaselineStatus(nextStatus);
+                setDeadline(nextDeadline);
+                setBaselineDeadline(nextDeadline);
+            }
+        } catch (error) {
+            setErrorMessage(error instanceof Error ? error.message : 'Не удалось обновить заявку');
+        }
+    }, [baselineDeadline, baselineStatus, deadline, request.id, status, userLogin]);
 
+    useEffect(() => {
+        fetchOffers(true);
+        fetchRequestDetails();
+        const intervalId = window.setInterval(() => {
+            fetchOffers(false);
+            fetchRequestDetails();
+        }, pollIntervalMs);
+        return () => window.clearInterval(intervalId);
+    }, [fetchOffers, fetchRequestDetails, pollIntervalMs]);
+    
     const handleSave = async () => {
         const statusChanged = status !== baselineStatus;
         const deadlineChanged = deadline !== baselineDeadline;

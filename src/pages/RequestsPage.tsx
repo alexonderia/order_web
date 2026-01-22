@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { Box, Button, Stack, Typography } from '@mui/material';
 import { RequestsTable } from '@features/requests/components/RequestsTable';
 import { getRequests } from '@shared/api/getRequests';
@@ -15,10 +15,13 @@ export const RequestsPage = ({ onCreateRequest, onLogout, userLogin, onRequestSe
     const [requests, setRequests] = useState<RequestWithOfferStats[]>([]);
     const [isLoading, setIsLoading] = useState(false);
     const [errorMessage, setErrorMessage] = useState<string | null>(null);
+    const pollIntervalMs = 10000;
 
-    useEffect(() => {
-        const fetchRequests = async () => {
-            setIsLoading(true);
+    const fetchRequests = useCallback(
+        async (showLoading: boolean) => {
+            if (showLoading) {
+                setIsLoading(true);
+            }
             setErrorMessage(null);
             try {
                 const data = await getRequests({ id_user_web: userLogin });
@@ -26,12 +29,22 @@ export const RequestsPage = ({ onCreateRequest, onLogout, userLogin, onRequestSe
             } catch (error) {
                 setErrorMessage(error instanceof Error ? error.message : 'Ошибка загрузки заявок');
             } finally {
-                setIsLoading(false);
+                if (showLoading) {
+                    setIsLoading(false);
+                }
             }
-        };
+        },
+        [userLogin]
+    );
 
-        fetchRequests();
-    }, [userLogin]);
+    useEffect(() => {
+        fetchRequests(true);
+        const intervalId = window.setInterval(() => {
+            fetchRequests(false);
+        }, pollIntervalMs);
+        return () => window.clearInterval(intervalId);
+    }, [fetchRequests, pollIntervalMs]);
+    
     return (
         <Box sx={{ minHeight: '100vh', padding: { xs: 2, md: 4 } }}>
             <Stack direction="row" justifyContent="space-between" alignItems="center" mb={3}>

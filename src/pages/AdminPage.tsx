@@ -22,6 +22,7 @@ export const AdminPage = ({ onLogout }: AdminPageProps) => {
   const [isLoadingContractors, setIsLoadingContractors] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [selectedEconomist, setSelectedEconomist] = useState<WebUser | null>(null);
+  const pollIntervalMs = 10000;
 
   const roleOptions = useMemo(
     () => [
@@ -36,7 +37,10 @@ export const AdminPage = ({ onLogout }: AdminPageProps) => {
     [roleOptions]
   );
 
-  const fetchEconomists = useCallback(async () => {
+  const fetchEconomists = useCallback(async (showLoading: boolean) => {
+    if (showLoading) {
+      setIsLoadingEconomists(true);
+    }
     setIsLoadingEconomists(true);
     setErrorMessage(null);
     try {
@@ -45,11 +49,16 @@ export const AdminPage = ({ onLogout }: AdminPageProps) => {
     } catch (error) {
       setErrorMessage(error instanceof Error ? error.message : 'Ошибка загрузки экономистов');
     } finally {
-      setIsLoadingEconomists(false);
+      if (showLoading) {
+        setIsLoadingEconomists(false);
+      }
     }
   }, []);
 
-  const fetchContractors = useCallback(async () => {
+  const fetchContractors = useCallback(async (showLoading: boolean) => {
+    if (showLoading) {
+      setIsLoadingContractors(true);
+    }
     setIsLoadingContractors(true);
     setErrorMessage(null);
     try {
@@ -58,18 +67,25 @@ export const AdminPage = ({ onLogout }: AdminPageProps) => {
     } catch (error) {
       setErrorMessage(error instanceof Error ? error.message : 'Ошибка загрузки контрагентов');
     } finally {
-      setIsLoadingContractors(false);
+      if (showLoading) {
+        setIsLoadingContractors(false);
+      }
     }
   }, []);
 
   useEffect(() => {
-    fetchEconomists();
-    fetchContractors();
-  }, [fetchEconomists, fetchContractors]);
+    fetchEconomists(true);
+    fetchContractors(true);
+    const intervalId = window.setInterval(() => {
+      fetchEconomists(false);
+      fetchContractors(false);
+    }, pollIntervalMs);
+    return () => window.clearInterval(intervalId);
+  }, [fetchEconomists, fetchContractors, pollIntervalMs]);
 
   const handleSaved = async () => {
     setSelectedEconomist(null);
-    await fetchEconomists();
+    await fetchEconomists(true);
   };
 
   return (
