@@ -519,9 +519,9 @@ export const RequestDetailsPage = ({ request, userLogin, onBack, onLogout }: Req
                 <DataTable
                     columns={detailsColumns}
                     rows={detailsRows}
-                    gridTemplateColumns="1fr 1fr"
                     rowKey={(row) => row.id}
                     showHeader={false}
+                    enableColumnControls={false}
                     renderRow={(row) => [
                         <Typography variant="body2">{row.label}</Typography>,
                         typeof row.value === 'string' || typeof row.value === 'number' ? (

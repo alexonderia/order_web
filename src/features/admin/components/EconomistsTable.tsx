@@ -3,12 +3,11 @@ import type { WebUser } from '@shared/api/getWebUsersByRole';
 import { DataTable } from '@shared/components/DataTable';
 
 const columns = [
-  { key: 'login', label: 'login' },
-  { key: 'id_role', label: 'id_role' },
-  { key: 'role', label: 'role' },
-  { key: 'actions', label: '' }
+  { key: 'login', label: 'login', minWidth: 160, fraction: 1.2 },
+  { key: 'id_role', label: 'id_role', minWidth: 120, fraction: 0.6 },
+  { key: 'role', label: 'role', minWidth: 160, fraction: 1 },
+  { key: 'actions', label: '', minWidth: 140, fraction: 1 }
 ];
-const gridTemplate = '1.2fr 0.6fr 1fr 1fr';
 
 type EconomistsTableProps = {
   users: WebUser[];
@@ -22,10 +21,10 @@ export const EconomistsTable = ({ users, isLoading, getRoleLabel, onEdit }: Econ
     <DataTable
       columns={columns}
       rows={users}
-      gridTemplateColumns={gridTemplate}
       rowKey={(user) => user.id}
       isLoading={isLoading}
       emptyMessage="Экономисты не найдены."
+      storageKey="economists-table"
       renderRow={(user) => [
         <Typography variant="body2">{user.id}</Typography>,
         <Typography variant="body2">{user.id_role}</Typography>,

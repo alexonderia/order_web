@@ -3,13 +3,12 @@ import type { TelegramUser } from '@shared/api/getTelegramUsers';
 import { DataTable } from '@shared/components/DataTable';
 
 const columns = [
-  { key: 'id', label: 'id' },
-  { key: 'tg_username', label: 'tg_username' },
-  { key: 'real_name', label: 'real_name' },
-  { key: 'id_contacts', label: 'id_contacts' },
-  { key: 'id_role', label: 'id_role' }
+  { key: 'id', label: 'id', minWidth: 80, fraction: 0.6 },
+  { key: 'tg_username', label: 'tg_username', minWidth: 160, fraction: 1.3 },
+  { key: 'real_name', label: 'real_name', minWidth: 180, fraction: 1.6 },
+  { key: 'id_contacts', label: 'id_contacts', minWidth: 140, fraction: 0.9 },
+  { key: 'id_role', label: 'id_role', minWidth: 120, fraction: 0.8 }
 ];
-const gridTemplate = '0.6fr 1.3fr 1.6fr 0.9fr 0.8fr';
 
 
 type TelegramUsersTableProps = {
@@ -22,10 +21,10 @@ export const TelegramUsersTable = ({ users, isLoading }: TelegramUsersTableProps
     <DataTable
       columns={columns}
       rows={users}
-      gridTemplateColumns={gridTemplate}
       rowKey={(user) => user.id}
       isLoading={isLoading}
       emptyMessage="Контрагенты не найдены."
+      storageKey="telegram-users-table"
       renderRow={(user) => [
         <Typography variant="body2">{user.id}</Typography>,
         <Typography variant="body2">{user.tg_username ?? '-'}</Typography>,

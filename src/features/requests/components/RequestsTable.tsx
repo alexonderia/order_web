@@ -3,20 +3,17 @@ import type { RequestWithOfferStats } from '@shared/api/getRequests';
 import { DataTable } from '@shared/components/DataTable';
 
 const columns = [
-    { key: 'id', label: 'id' },
-    { key: 'description', label: 'Описание' },
-    { key: 'status', label: 'Статус' },
-    { key: 'deadline', label: 'Прием КП до' },
-    { key: 'created', label: 'Открыта' },
-    { key: 'closed', label: 'Закрыта' },
-    { key: 'offer', label: 'Номер КП' },
-    { key: 'creator', label: 'Создатель' },
-    { key: 'updated', label: 'Последнее обновление' },
-    { key: 'notification', label: 'Уведомление' }
+    { key: 'id', label: 'id', minWidth: 80, fraction: 0.6 },
+    { key: 'description', label: 'Описание', minWidth: 240, fraction: 2 },
+    { key: 'status', label: 'Статус', minWidth: 140, fraction: 1.2 },
+    { key: 'deadline', label: 'Прием КП до', minWidth: 150, fraction: 1.2 },
+    { key: 'created', label: 'Открыта', minWidth: 130, fraction: 1.1 },
+    { key: 'closed', label: 'Закрыта', minWidth: 130, fraction: 1.1 },
+    { key: 'offer', label: 'Номер КП', minWidth: 120, fraction: 1.1 },
+    { key: 'creator', label: 'Создатель', minWidth: 140, fraction: 1.2 },
+    { key: 'updated', label: 'Последнее обновление', minWidth: 170, fraction: 1.3 },
+    { key: 'notification', label: 'Уведомление', minWidth: 200, fraction: 1.1 }
 ];
-
-
-const gridTemplate = '0.6fr 2fr 1.2fr 1.2fr 1.1fr 1.1fr 1.1fr 1.2fr 1.3fr 1.1fr';
 
 
 type RequestsTableProps = {
@@ -80,11 +77,11 @@ export const RequestsTable = ({ requests, isLoading, onRowClick }: RequestsTable
         <DataTable
             columns={columns}
             rows={requests}
-            gridTemplateColumns={gridTemplate}
             rowKey={(row) => row.id}
             isLoading={isLoading}
             emptyMessage="Заявки не найдены."
             onRowClick={onRowClick}
+            storageKey="requests-table"
             renderRow={(row) => [
                 <Typography variant="body2">{row.id}</Typography>,
                 <Typography variant="body2">{row.description ?? '-'}</Typography>,

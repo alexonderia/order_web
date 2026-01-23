@@ -26,17 +26,16 @@ type NotificationStyle = {
 };
 
 const columns = [
-    { key: 'status', label: '' },
-    { key: 'offerId', label: 'Номер КП' },
-    { key: 'counterparty', label: 'Контрагент' },
-    { key: 'contacts', label: 'Контакты' },
-    { key: 'createdAt', label: 'Дата создания' },
-    { key: 'updatedAt', label: 'Дата изменения' },
-    { key: 'file', label: 'КП' },
-    { key: 'statusSelect', label: 'Статус' }
+    { key: 'status', label: '', minWidth: 80, fraction: 0.4 },
+    { key: 'offerId', label: 'Номер КП', minWidth: 120, fraction: 0.8 },
+    { key: 'counterparty', label: 'Контрагент', minWidth: 180, fraction: 1.4 },
+    { key: 'contacts', label: 'Контакты', minWidth: 220, fraction: 1.6 },
+    { key: 'createdAt', label: 'Дата создания', minWidth: 140, fraction: 1.1 },
+    { key: 'updatedAt', label: 'Дата изменения', minWidth: 150, fraction: 1.1 },
+    { key: 'file', label: 'КП', minWidth: 120, fraction: 1 },
+    { key: 'statusSelect', label: 'Статус', minWidth: 160, fraction: 1 }
 ];
 
-const gridTemplate = '0.4fr 0.8fr 1.4fr 1.6fr 1.1fr 1.1fr 1fr 1fr';
 
 const formatDate = (value: string | null) => {
     if (!value) {
@@ -129,11 +128,11 @@ export const OffersTable = ({
         <DataTable
             columns={columns}
             rows={offers}
-            gridTemplateColumns={gridTemplate}
             rowKey={(offer) => offer.offer_id}
             isLoading={isLoading}
             emptyMessage="Офферы пока не получены."
             statusContent={statusContent}
+            storageKey="offers-table"
             renderRow={(offer) => {
                 const notificationStyle = getNotificationStyle(offer.status);
                 const fileUrl = getDownloadUrl(offer.id_file, offer.file_path);

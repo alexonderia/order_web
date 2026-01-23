@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { AdminPage } from '@pages/AdminPage';
 import { AuthPage } from '@pages/AuthPage';
 import { CreateRequestPage } from '@pages/CreateRequestPage';
@@ -12,6 +12,7 @@ import type { RegisterWebUserPayload } from '@shared/api/registerWebUser';
 import type { RequestWithOfferStats } from '@shared/api/getRequests';
 
 export const App = () => {
+  const sessionKey = 'order-web:session';
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
@@ -21,6 +22,43 @@ export const App = () => {
   const [selectedRequest, setSelectedRequest] = useState<RequestWithOfferStats | null>(null);
   const [isCreatingRequest, setIsCreatingRequest] = useState(false);
   const [createRequestError, setCreateRequestError] = useState<string | null>(null);
+
+  useEffect(() => {
+    const raw = sessionStorage.getItem(sessionKey);
+    if (!raw) {
+      return;
+    }
+    try {
+      const stored = JSON.parse(raw) as {
+        isAuthenticated?: boolean;
+        userLogin?: string;
+        userRole?: number;
+        activePage?: 'requests' | 'create' | 'details' | 'admin';
+      };
+      if (stored.isAuthenticated && stored.userLogin && typeof stored.userRole === 'number') {
+        setIsAuthenticated(true);
+        setUserLogin(stored.userLogin);
+        setUserRole(stored.userRole);
+        setActivePage(stored.activePage ?? (stored.userRole === 1 ? 'admin' : 'requests'));
+      }
+    } catch {
+      sessionStorage.removeItem(sessionKey);
+    }
+  }, []);
+
+  useEffect(() => {
+    if (!isAuthenticated || !userLogin || userRole === null) {
+      sessionStorage.removeItem(sessionKey);
+      return;
+    }
+    const payload = {
+      isAuthenticated,
+      userLogin,
+      userRole,
+      activePage
+    };
+    sessionStorage.setItem(sessionKey, JSON.stringify(payload));
+  }, [activePage, isAuthenticated, sessionKey, userLogin, userRole]);
 
   const handleRegister = async (payload: RegisterWebUserPayload) => {
     setIsSubmitting(true);
@@ -95,6 +133,8 @@ export const App = () => {
     setUserLogin(null);
     setUserRole(null);
     setActivePage('requests');
+    setSelectedRequest(null);
+    sessionStorage.removeItem(sessionKey);
   };
 
   return isAuthenticated ? (
