@@ -57,19 +57,43 @@ const NotificationContent = ({ countSubmitted, countDeleted }: { countSubmitted:
     if (countSubmitted > 0 && countDeleted > 0) {
         return (
             <Stack direction="row" spacing={1} alignItems="center" flexWrap="wrap">
-                <Chip label={countSubmitted} size="small" sx={{ backgroundColor: '#2e7d32', color: '#fff' }} />
-                <Chip label={countDeleted} size="small" sx={{ backgroundColor: '#c62828', color: '#fff' }} />
+                 <Chip
+                    label={countSubmitted}
+                    size="small"
+                    variant="outlined"
+                    sx={{ borderColor: '#2e7d32', color: '#2e7d32', fontWeight: 600 }}
+                />
+                <Chip
+                    label={countDeleted}
+                    size="small"
+                    variant="outlined"
+                    sx={{ borderColor: '#c62828', color: '#c62828', fontWeight: 600 }}
+                />
             </Stack>
         );
     }
 
     if (countSubmitted > 0) {
         const label = countSubmitted === 1 ? 'Новое предложение' : `${countSubmitted} новых предложения`;
-        return <Chip label={label} size="small" sx={{ backgroundColor: '#2e7d32', color: '#fff' }} />;
+        return (
+            <Chip
+                label={label}
+                size="small"
+                variant="outlined"
+                sx={{ borderColor: '#2e7d32', color: '#2e7d32', fontWeight: 600 }}
+            />
+        );
     }
 
     const label = countDeleted === 1 ? 'Отмена сделки' : `${countDeleted} отмены сделки`;
-    return <Chip label={label} size="small" sx={{ backgroundColor: '#c62828', color: '#fff' }} />;
+    return (
+        <Chip
+            label={label}
+            size="small"
+            variant="outlined"
+            sx={{ borderColor: '#c62828', color: '#c62828', fontWeight: 600 }}
+        />
+    );
 };
 
 export const RequestsTable = ({ requests, isLoading, onRowClick }: RequestsTableProps) => {

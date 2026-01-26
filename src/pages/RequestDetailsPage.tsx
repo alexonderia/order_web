@@ -219,7 +219,7 @@ export const RequestDetailsPage = ({ request, userLogin, onBack, onLogout }: Req
                 id_user_web: userLogin,
                 request_id: request.id,
                 status: statusChanged ? status : null,
-                deadline_at: deadlineChanged ? `${deadline}T00:00:00` : null
+                deadline_at: deadlineChanged ? `${deadline}T23:59:59` : null
             };
 
             const response = await updateRequest(payload);

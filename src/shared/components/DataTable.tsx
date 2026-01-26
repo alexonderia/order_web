@@ -1,5 +1,5 @@
 import type { MouseEvent as ReactMouseEvent, ReactNode } from 'react';
-import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect,  useMemo, useRef, useState } from 'react';
 import {
     Box,
     Button,
@@ -39,15 +39,39 @@ type DataTableProps<T> = {
     storageKey?: string;
 };
 
+const tablePalette = {
+    surface: '#ffffff',
+    surfaceMuted: '#edf3ff',
+    border: '#d3dbe7',
+    headerBg: '#e7f0ff',
+    headerText: '#1f2a44',
+    rowHover: '#eaf2ff',
+    accent: '#2f6fd6'
+};
+
+const controlButtonSx = {
+    borderColor: tablePalette.accent,
+    color: tablePalette.accent,
+    fontWeight: 600,
+    textTransform: 'none',
+    '&:hover': {
+        borderColor: '#245bb5',
+        backgroundColor: 'rgba(47, 111, 214, 0.08)'
+    }
+};
+
 const baseCellSx = {
     paddingY: 1.4,
     paddingX: 1.5,
-    borderRight: '1px solid rgba(0,0,0,0.3)',
-    borderBottom: '1px solid rgba(0,0,0,0.3)',
+    borderRight: `1px solid ${tablePalette.border}`,
+    borderBottom: `1px solid ${tablePalette.border}`,
     display: 'flex',
     alignItems: 'center',
     boxSizing: 'border-box',
-    minWidth: 0
+    minWidth: 0,
+    color: tablePalette.headerText,
+    fontSize: 14,
+    lineHeight: 1.4
 };
 
 const resolveAlignment = (align: DataTableColumn['align']) => {
@@ -92,7 +116,9 @@ const TableCell = ({
             justifyContent: resolveAlignment(align),
             position: showResizer ? 'relative' : 'static',
             userSelect: showResizer ? 'none' : 'auto',
-            backgroundColor: isHeader ? '#cfcfcf' : 'transparent'
+            backgroundColor: isHeader ? tablePalette.headerBg : 'transparent',
+            textTransform: isHeader ? 'uppercase' : 'none',
+            letterSpacing: isHeader ? '0.04em' : 'normal'
         }}
     >
         {children}
@@ -108,7 +134,7 @@ const TableCell = ({
                     cursor: 'col-resize',
                     zIndex: 2,
                     '&:hover': {
-                        backgroundColor: 'rgba(0,0,0,0.08)'
+                        backgroundColor: 'rgba(47, 111, 214, 0.12)'
                     }
                 }}
             />
@@ -171,11 +197,9 @@ export const DataTable = <T,>({
     }, [initialVisibleColumnKeys, storedState]);
     const [visibleColumnKeys, setVisibleColumnKeys] = useState<string[]>(initialVisibleColumns);
     const [columnWidths, setColumnWidths] = useState<Record<string, number>>(() => storedState?.columnWidths ?? {});
-    const tableRef = useRef<HTMLDivElement | null>(null);
     const [settingsAnchor, setSettingsAnchor] = useState<HTMLElement | null>(null);
     const headerRefs = useRef<Record<string, HTMLDivElement | null>>({});
     const resizeState = useRef<{ key: string; startX: number; startWidth: number } | null>(null);
-    const [containerWidth, setContainerWidth] = useState(0);
 
     const normalizeVisibleColumns = useCallback(
         (keys: string[]) => columnOrder.filter((key) => keys.includes(key)),
@@ -202,22 +226,6 @@ export const DataTable = <T,>({
         sessionStorage.setItem(storageKeyValue, JSON.stringify(payload));
     }, [columnWidths, storageKeyValue, visibleColumnKeys]);
 
-    useLayoutEffect(() => {
-        if (!tableRef.current) {
-            return;
-        }
-        const updateWidth = () => {
-            setContainerWidth(tableRef.current?.clientWidth ?? 0);
-        };
-        updateWidth();
-        if (typeof ResizeObserver === 'undefined') {
-            window.addEventListener('resize', updateWidth);
-            return () => window.removeEventListener('resize', updateWidth);
-        }
-        const observer = new ResizeObserver(() => updateWidth());
-        observer.observe(tableRef.current);
-        return () => observer.disconnect();
-    }, []);
 
     const handleVisibleColumnsChange = (event: SelectChangeEvent<string[]>) => {
         const value = event.target.value;
@@ -292,19 +300,23 @@ export const DataTable = <T,>({
         [columnsWithIndex, visibleColumnKeys]
     );
     const gridTemplateColumns = useMemo(() => {
-        const totalFraction = visibleColumns.reduce((sum, column) => sum + (column.fraction ?? 1), 0);
-        const safeWidth = containerWidth || 0;
+        const totalFraction = visibleColumns.reduce((sum, column) => sum + (column.fraction ?? 1), 0) || 1;
         return visibleColumns
             .map((column) => {
                 const fraction = column.fraction ?? 1;
-                const baseWidth = safeWidth > 0 ? (safeWidth * fraction) / totalFraction : 160;
-                const minWidth = column.minWidth ?? 60;
                 const userWidth = columnWidths[column.key];
-                const targetWidth = typeof userWidth === 'number' ? userWidth : baseWidth;
-                return `minmax(${minWidth}px, ${Math.max(minWidth, Math.floor(targetWidth))}px)`;
+                if (typeof userWidth === 'number') {
+                    return `minmax(80px, ${Math.floor(userWidth)}px)`;
+                }
+                return `minmax(0px, ${(fraction / totalFraction) * 1}fr)`;
             })
             .join(' ');
-    }, [columnWidths, containerWidth, visibleColumns]);
+    }, [columnWidths, visibleColumns]);
+
+    const hasCustomWidths = useMemo(
+        () => Object.values(columnWidths).some((width) => typeof width === 'number'),
+        [columnWidths]
+    );
 
     const showControls = enableColumnControls && columns.length > 1;
     const settingsOpen = Boolean(settingsAnchor);
@@ -340,13 +352,14 @@ export const DataTable = <T,>({
                         display: 'grid',
                         gridTemplateColumns,
                         alignItems: 'stretch',
-                        width: 'max-content',
+                        width: hasCustomWidths ? 'max-content' : '100%',
                         minWidth: '100%',
+                        backgroundColor: tablePalette.surface,
                         borderRadius: 2,
                         overflow: 'hidden',
                         transition: 'background-color 0.2s ease',
                         '&:hover': {
-                            backgroundColor: '#ffffff'
+                            backgroundColor: tablePalette.rowHover
                         },
                         cursor: onRowClick ? 'pointer' : 'default'
                     }}
@@ -369,18 +382,18 @@ export const DataTable = <T,>({
 
     return (
         <Box
-            ref={tableRef}
             sx={{
-                backgroundColor: '#d9d9d9',
-                borderRadius: 2,
-                padding: 2,
-                border: '1px solid rgba(0,0,0,0.3)',
+                backgroundColor: tablePalette.surfaceMuted,
+                borderRadius: 3,
+                padding: 2.5,
+                border: `1px solid ${tablePalette.border}`,
+                boxShadow: '0 12px 28px rgba(15, 35, 75, 0.08)',
                 overflowX: 'auto',
                 overflowY: 'hidden',
                 width: '100%'
             }}
         >
-            <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1.5, minWidth: 'max-content' }}>
+            <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1.5, minWidth: 0 }}>
                 {showControls && (
                     <Stack
                         direction={{ xs: 'column', sm: 'row' }}
@@ -388,7 +401,31 @@ export const DataTable = <T,>({
                         alignItems={{ xs: 'stretch', sm: 'center' }}
                         justifyContent="space-between"
                     >
-                        <FormControl size="small" sx={{ minWidth: 220 }}>
+                        <FormControl
+                            size="small"
+                            sx={{
+                                minWidth: 220,
+                                '& .MuiOutlinedInput-root': {
+                                    backgroundColor: tablePalette.surface,
+                                    borderRadius: 2
+                                },
+                                '& .MuiOutlinedInput-notchedOutline': {
+                                    borderColor: tablePalette.border
+                                },
+                                '& .MuiOutlinedInput-root:hover .MuiOutlinedInput-notchedOutline': {
+                                    borderColor: tablePalette.accent
+                                },
+                                '& .MuiOutlinedInput-root.Mui-focused .MuiOutlinedInput-notchedOutline': {
+                                    borderColor: tablePalette.accent
+                                },
+                                '& .MuiInputLabel-root': {
+                                    color: tablePalette.headerText
+                                },
+                                '& .MuiSvgIcon-root': {
+                                    color: tablePalette.accent
+                                }
+                            }}
+                        >
                             <InputLabel id="columns-filter-label">Столбцы</InputLabel>
                             <Select
                                 labelId="columns-filter-label"
@@ -407,10 +444,15 @@ export const DataTable = <T,>({
                             </Select>
                         </FormControl>
                         <Stack direction="row" spacing={1} alignItems="center">
-                            <Button size="small" variant="outlined" onClick={handleShowAllColumns}>
+                            <Button size="small" variant="outlined" sx={controlButtonSx} onClick={handleShowAllColumns}>
                                 Показать все
                             </Button>
-                            <Button size="small" variant="outlined" onClick={(event) => setSettingsAnchor(event.currentTarget)}>
+                            <Button
+                                size="small"
+                                variant="outlined"
+                                sx={controlButtonSx}
+                                onClick={(event) => setSettingsAnchor(event.currentTarget)}
+                            >
                                 Настройки
                             </Button>
                         </Stack>
@@ -441,12 +483,13 @@ export const DataTable = <T,>({
                             display: 'grid',
                             gridTemplateColumns,
                             alignItems: 'stretch',
-                            width: 'max-content',
-                            minWidth: '100%',
-                            borderRadius: 1,
+                            width: hasCustomWidths ? 'max-content' : '100%',
+                            minWidth: 0,
+                            borderRadius: 2,
                             overflow: 'hidden',
-                            border: '1px solid rgba(0,0,0,0.3)',
-                            borderBottom: 'none'
+                            border: `1px solid ${tablePalette.border}`,
+                            borderBottom: 'none',
+                            boxShadow: '0 6px 16px rgba(15, 35, 75, 0.06)'
                         }}
                     >
                         {visibleColumns.map((column, index) => (

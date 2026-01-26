@@ -21,7 +21,7 @@ type OffersTableProps = {
 };
 
 type NotificationStyle = {
-    backgroundColor: string;
+    borderColor: string;
     icon: ReactNode;
 };
 
@@ -69,9 +69,9 @@ const getContactInfo = (offer: OfferDetails) => {
 const getNotificationStyle = (status: string | null): NotificationStyle => {
     if (status === 'accepted') {
         return {
-            backgroundColor: '#2e7d32',
+            borderColor: '#2e7d32',
             icon: (
-                <SvgIcon fontSize="small" sx={{ color: '#fff' }}>
+                <SvgIcon fontSize="small" sx={{ color: '#2e7d32' }}>
                     <path d="M9 16.17 4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z" />
                 </SvgIcon>
             )
@@ -80,9 +80,9 @@ const getNotificationStyle = (status: string | null): NotificationStyle => {
 
     if (status === 'submitted') {
         return {
-            backgroundColor: '#2e7d32',
+            borderColor: '#2e7d32',
             icon: (
-                <SvgIcon fontSize="small" sx={{ color: '#fff' }}>
+                <SvgIcon fontSize="small" sx={{ color: '#2e7d32' }}>
                     <path d="M19 13H13V19H11V13H5V11H11V5H13V11H19V13Z" />
                 </SvgIcon>
             )
@@ -91,9 +91,9 @@ const getNotificationStyle = (status: string | null): NotificationStyle => {
 
     if (status === 'deleted') {
         return {
-            backgroundColor: '#c62828',
+            borderColor: '#c62828',
             icon: (
-                <SvgIcon fontSize="small" sx={{ color: '#fff' }}>
+                <SvgIcon fontSize="small" sx={{ color: '#c62828' }}>
                     <path d="M11 15h2v2h-2zm0-10h2v8h-2z" />
                 </SvgIcon>
             )
@@ -102,16 +102,23 @@ const getNotificationStyle = (status: string | null): NotificationStyle => {
 
     if (status === 'rejected') {
         return {
-            backgroundColor: '#787878ff',
+            borderColor: '#787878',
             icon: (
-                <SvgIcon fontSize="small" sx={{ color: '#fff' }}>
+                <SvgIcon fontSize="small" sx={{ color: '#787878' }}>
                     <path d="M19 13H5V11H19V13Z" />
                 </SvgIcon>
             )
         };
     }
 
-    return { backgroundColor: '#ffffffff', icon: null };
+    return {
+        borderColor: '#d3dbe7',
+        icon: (
+            <SvgIcon fontSize="small" sx={{ color: '#1f2a44' }}>
+                <path d="M19 13H5V11H19V13Z" />
+            </SvgIcon>
+        )
+    };
 };
 
 export const OffersTable = ({
@@ -146,11 +153,12 @@ export const OffersTable = ({
                             sx={{
                                 width: 28,
                                 height: 28,
-                                borderRadius: 2,
-                                backgroundColor: notificationStyle.backgroundColor,
+                                borderRadius: 8,
+                                border: `1px solid ${notificationStyle.borderColor}`,
                                 display: 'flex',
                                 alignItems: 'center',
                                 justifyContent: 'center',
+                                backgroundColor: 'transparent',
                                 fontWeight: 700
                             }}
                         >
