@@ -3,17 +3,21 @@ import type { RequestWithOfferStats } from '@shared/api/getRequests';
 import { DataTable } from '@shared/components/DataTable';
 
 const columns = [
-    { key: 'id', label: 'id', minWidth: 80, fraction: 0.6 },
-    { key: 'description', label: 'Описание', minWidth: 240, fraction: 2 },
-    { key: 'status', label: 'Статус', minWidth: 140, fraction: 1.2 },
-    { key: 'deadline', label: 'Прием КП до', minWidth: 150, fraction: 1.2 },
-    { key: 'created', label: 'Открыта', minWidth: 130, fraction: 1.1 },
-    { key: 'closed', label: 'Закрыта', minWidth: 130, fraction: 1.1 },
-    { key: 'offer', label: 'Номер КП', minWidth: 120, fraction: 1.1 },
-    { key: 'creator', label: 'Создатель', minWidth: 140, fraction: 1.2 },
-    { key: 'updated', label: 'Последнее обновление', minWidth: 170, fraction: 1.3 },
-    { key: 'notification', label: 'Уведомление', minWidth: 200, fraction: 1.1 }
+  { key: 'id',           label: 'id',                   minWidth: 60,  fraction: 0.45 },
+  { key: 'description',  label: 'Описание',             minWidth: 200, fraction: 2.5  },
+
+  { key: 'status',       label: 'Статус',               minWidth: 100, fraction: 1.1  },
+  { key: 'deadline',     label: 'Прием КП до',           minWidth: 120, fraction: 1.1  },
+  { key: 'created',      label: 'Открыта',               minWidth: 120, fraction: 1.1  },
+  { key: 'closed',       label: 'Закрыта',               minWidth: 120, fraction: 1.1  },
+
+  { key: 'offer',        label: 'Номер КП',              minWidth: 100, fraction: 0.9  },
+  { key: 'creator',      label: 'Создатель',             minWidth: 120, fraction: 1.0  },
+
+  { key: 'updated',      label: 'Последнее обновление',  minWidth: 150, fraction: 1.3  },
+  { key: 'notification', label: 'Уведомление',           minWidth: 200, fraction: 1.6  },
 ];
+
 
 
 type RequestsTableProps = {

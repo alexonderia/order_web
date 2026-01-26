@@ -3,12 +3,12 @@ import type { TelegramUser } from '@shared/api/getTelegramUsers';
 import { DataTable } from '@shared/components/DataTable';
 
 const columns = [
-  { key: 'id', label: 'id', minWidth: 80, fraction: 0.6 },
-  { key: 'tg_username', label: 'tg_username', minWidth: 160, fraction: 1.3 },
-  { key: 'real_name', label: 'real_name', minWidth: 180, fraction: 1.6 },
-  { key: 'id_contacts', label: 'id_contacts', minWidth: 140, fraction: 0.9 },
-  { key: 'id_role', label: 'id_role', minWidth: 120, fraction: 0.8 }
-];
+  { key: 'id', label: 'id', minWidth: 60, fraction: 0.4 },
+  { key: 'tg_username', label: 'tg_username', minWidth: 150, fraction: 1.3 },
+  { key: 'real_name', label: 'real_name', minWidth: 170, fraction: 1.6 },
+  { key: 'id_contacts', label: 'id_contacts', minWidth: 120, fraction: 0.9 },
+  { key: 'id_role', label: 'id_role', minWidth: 100, fraction: 0.8 }
+]
 
 
 type TelegramUsersTableProps = {

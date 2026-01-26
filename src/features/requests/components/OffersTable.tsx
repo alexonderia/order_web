@@ -26,14 +26,14 @@ type NotificationStyle = {
 };
 
 const columns = [
-    { key: 'status', label: '', minWidth: 80, fraction: 0.4 },
-    { key: 'offerId', label: 'Номер КП', minWidth: 120, fraction: 0.8 },
-    { key: 'counterparty', label: 'Контрагент', minWidth: 180, fraction: 1.4 },
-    { key: 'contacts', label: 'Контакты', minWidth: 220, fraction: 1.6 },
-    { key: 'createdAt', label: 'Дата создания', minWidth: 140, fraction: 1.1 },
-    { key: 'updatedAt', label: 'Дата изменения', minWidth: 150, fraction: 1.1 },
-    { key: 'file', label: 'КП', minWidth: 120, fraction: 1 },
-    { key: 'statusSelect', label: 'Статус', minWidth: 160, fraction: 1 }
+    { key: 'status', label: '', minWidth: 60, fraction: 0.3 },
+    { key: 'offerId', label: 'Номер КП', minWidth: 100, fraction: 0.8 },
+    { key: 'counterparty', label: 'Контрагент', minWidth: 160, fraction: 1.4 },
+    { key: 'contacts', label: 'Контакты', minWidth: 200, fraction: 1.6 },
+    { key: 'createdAt', label: 'Дата создания', minWidth: 120, fraction: 1.1 },
+    { key: 'updatedAt', label: 'Дата изменения', minWidth: 120, fraction: 1.1 },
+    { key: 'file', label: 'КП', minWidth: 100, fraction: 1 },
+    { key: 'statusSelect', label: 'Статус', minWidth: 140, fraction: 1 }
 ];
 
 

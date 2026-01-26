@@ -1,550 +1,626 @@
 import type { MouseEvent as ReactMouseEvent, ReactNode } from 'react';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
-    Box,
-    Button,
-    Checkbox,
-    FormControl,
-    InputLabel,
-    ListItemText,
-    Menu,
-    MenuItem,
-    Select,
-    Stack,
-    Typography
+  Box,
+  Button,
+  Checkbox,
+  FormControl,
+  InputLabel,
+  ListItemText,
+  Menu,
+  MenuItem,
+  Select,
+  Stack,
+  Typography,
 } from '@mui/material';
 import type { SelectChangeEvent } from '@mui/material/Select';
 
 export type DataTableColumn = {
-    key: string;
-    label: ReactNode;
-    align?: 'left' | 'center' | 'right';
-    width?: number;
-    minWidth?: number;
-    fraction?: number;
+  key: string;
+  label: ReactNode;
+  align?: 'left' | 'center' | 'right';
+  width?: number; // px hint for manual
+  minWidth?: number;
+  fraction?: number;
 };
 
 type DataTableProps<T> = {
-    columns: DataTableColumn[];
-    rows: T[];
-    rowKey: (row: T) => string | number;
-    renderRow: (row: T) => ReactNode[];
-    isLoading?: boolean;
-    emptyMessage?: string;
-    statusContent?: ReactNode;
-    onRowClick?: (row: T) => void;
-    showHeader?: boolean;
-    enableColumnControls?: boolean;
-    defaultHiddenColumnKeys?: string[];
-    storageKey?: string;
+  columns: DataTableColumn[];
+  rows: T[];
+  rowKey: (row: T) => string | number;
+  renderRow: (row: T) => ReactNode[];
+  isLoading?: boolean;
+  emptyMessage?: string;
+  statusContent?: ReactNode;
+  onRowClick?: (row: T) => void;
+  showHeader?: boolean;
+  enableColumnControls?: boolean;
+  defaultHiddenColumnKeys?: string[];
+  storageKey?: string;
+
+  stickyFirstColumn?: boolean;
+  stickyLastColumn?: boolean;
 };
 
 const tablePalette = {
-    surface: '#ffffff',
-    surfaceMuted: '#edf3ff',
-    border: '#d3dbe7',
-    headerBg: '#e7f0ff',
-    headerText: '#1f2a44',
-    rowHover: '#eaf2ff',
-    accent: '#2f6fd6'
+  surface: '#ffffff',
+  surfaceMuted: '#edf3ff',
+  border: '#d3dbe7',
+  headerBg: '#e7f0ff',
+  headerText: '#1f2a44',
+  rowHover: '#eaf2ff',
+  accent: '#2f6fd6',
 };
 
 const controlButtonSx = {
-    borderColor: tablePalette.accent,
-    color: tablePalette.accent,
-    fontWeight: 600,
-    textTransform: 'none',
-    '&:hover': {
-        borderColor: '#245bb5',
-        backgroundColor: 'rgba(47, 111, 214, 0.08)'
-    }
+  borderColor: tablePalette.accent,
+  color: tablePalette.accent,
+  fontWeight: 600,
+  textTransform: 'none',
+  '&:hover': {
+    borderColor: '#245bb5',
+    backgroundColor: 'rgba(47, 111, 214, 0.08)',
+  },
 };
 
 const baseCellSx = {
-    paddingY: 1.4,
-    paddingX: 1.5,
-    borderRight: `1px solid ${tablePalette.border}`,
-    borderBottom: `1px solid ${tablePalette.border}`,
-    display: 'flex',
-    alignItems: 'center',
-    boxSizing: 'border-box',
-    minWidth: 0,
-    overflow: 'hidden',
-    textOverflow: 'ellipsis',
-    whiteSpace: 'nowrap',
-    color: tablePalette.headerText,
-    fontSize: 14,
-    lineHeight: 1.4
+  paddingY: 1.4,
+  paddingX: 1.5,
+  borderRight: `1px solid ${tablePalette.border}`,
+  borderBottom: `1px solid ${tablePalette.border}`,
+  display: 'flex',
+  alignItems: 'center',
+  boxSizing: 'border-box' as const,
+  minWidth: 0,
+
+  // ✅ перенос по умолчанию (и в шапке, и в ячейках)
+  whiteSpace: 'normal' as const,
+  overflow: 'hidden' as const,
+  textOverflow: 'clip' as const,
+  overflowWrap: 'anywhere' as const,
+  wordBreak: 'break-word' as const,
+
+  color: tablePalette.headerText,
+  fontSize: 14,
+  lineHeight: 1.35,
 };
 
 const resolveAlignment = (align: DataTableColumn['align']) => {
-    if (align === 'center') {
-        return 'center';
-    }
-
-    if (align === 'right') {
-        return 'flex-end';
-    }
-
-    return 'flex-start';
+  if (align === 'center') return 'center';
+  if (align === 'right') return 'flex-end';
+  return 'flex-start';
 };
 
+type StickySide = false | 'left' | 'right';
+
 const TableCell = ({
-    children,
-    isLast,
-    align,
-    isHeader,
-    columnKey,
-    showResizer = false,
-    onResizeStart,
-    setRef
+  children,
+  isLast,
+  align,
+  isHeader,
+  columnKey,
+  showResizer = false,
+  onResizeStart,
+  setRef,
+  stickySide = false,
 }: {
-    children: ReactNode;
-    isLast: boolean;
-    align?: DataTableColumn['align'];
-    isHeader?: boolean;
-    columnKey?: string;
-    showResizer?: boolean;
-    onResizeStart?: (event: ReactMouseEvent<HTMLDivElement>) => void;
-    setRef?: (node: HTMLDivElement | null) => void;
+  children: ReactNode;
+  isLast: boolean;
+  align?: DataTableColumn['align'];
+  isHeader?: boolean;
+  columnKey?: string;
+  showResizer?: boolean;
+  onResizeStart?: (event: ReactMouseEvent<HTMLDivElement>) => void;
+  setRef?: (node: HTMLDivElement | null) => void;
+  stickySide?: StickySide;
 }) => (
-    <Box
-        ref={setRef}
-        data-column-key={columnKey}
-        data-cell-role={isHeader ? 'header' : 'body'}
+  <Box
+    ref={setRef}
+    data-column-key={columnKey}
+    data-cell-role={isHeader ? 'header' : 'body'}
+    sx={{
+      ...baseCellSx,
+      borderRight: isLast ? 'none' : baseCellSx.borderRight,
+      fontWeight: isHeader ? 700 : 400,
+      justifyContent: resolveAlignment(align),
+
+      position: stickySide ? 'sticky' : showResizer ? 'relative' : 'static',
+      left: stickySide === 'left' ? 0 : 'auto',
+      right: stickySide === 'right' ? 0 : 'auto',
+      zIndex: stickySide ? (isHeader ? 6 : 4) : 'auto',
+
+      backgroundColor: isHeader ? tablePalette.headerBg : tablePalette.surface,
+      userSelect: showResizer ? 'none' : 'auto',
+      textTransform: isHeader ? 'uppercase' : 'none',
+      letterSpacing: isHeader ? '0.04em' : 'normal',
+
+      // ✅ убрали затемнение/тени при скролле полностью
+      boxShadow: 'none',
+      borderLeft: stickySide === 'right' ? `1px solid ${tablePalette.border}` : undefined,
+    }}
+  >
+    {children}
+    {showResizer && (
+      <Box
+        onMouseDown={onResizeStart}
         sx={{
-            ...baseCellSx,
-            borderRight: isLast ? 'none' : baseCellSx.borderRight,
-            fontWeight: isHeader ? 700 : 400,
-            justifyContent: resolveAlignment(align),
-            position: showResizer ? 'relative' : 'static',
-            userSelect: showResizer ? 'none' : 'auto',
-            backgroundColor: isHeader ? tablePalette.headerBg : 'transparent',
-            textTransform: isHeader ? 'uppercase' : 'none',
-            letterSpacing: isHeader ? '0.04em' : 'normal'
+          position: 'absolute',
+          top: 0,
+          right: -4,
+          width: 8,
+          height: '100%',
+          cursor: 'col-resize',
+          zIndex: 10,
+          '&:hover': { backgroundColor: 'rgba(47, 111, 214, 0.12)' },
         }}
-    >
-        {children}
-        {showResizer && (
-            <Box
-                onMouseDown={onResizeStart}
-                sx={{
-                    position: 'absolute',
-                    top: 0,
-                    right: -4,
-                    width: 8,
-                    height: '100%',
-                    cursor: 'col-resize',
-                    zIndex: 2,
-                    '&:hover': {
-                        backgroundColor: 'rgba(47, 111, 214, 0.12)'
-                    }
-                }}
-            />
-        )}
-    </Box>
+      />
+    )}
+  </Box>
 );
 
 const renderHeaderLabel = (label: ReactNode) => {
-    if (typeof label === 'string' || typeof label === 'number') {
-        return <Typography variant="body2">{label}</Typography>;
-    }
+  if (typeof label === 'string' || typeof label === 'number') {
+    return <Typography variant="body2">{label}</Typography>;
+  }
+  return label;
+};
 
-    return label;
+type ResizeSession = {
+  key: string;
+  startX: number;
+  startWidth: number;
 };
 
 export const DataTable = <T,>({
-    columns,
-    rows,
-    rowKey,
-    renderRow,
-    isLoading = false,
-    emptyMessage = 'Данные отсутствуют.',
-    statusContent,
-    onRowClick,
-    showHeader = true,
-    enableColumnControls = true,
-    defaultHiddenColumnKeys,
-    storageKey
+  columns,
+  rows,
+  rowKey,
+  renderRow,
+  isLoading = false,
+  emptyMessage = 'Данные отсутствуют.',
+  statusContent,
+  onRowClick,
+  showHeader = true,
+  enableColumnControls = true,
+  defaultHiddenColumnKeys,
+  storageKey,
+  stickyFirstColumn = true,
+  stickyLastColumn = true,
 }: DataTableProps<T>) => {
-    const hasRows = rows.length > 0;
-    const columnOrder = useMemo(() => columns.map((column) => column.key), [columns]);
-    const hiddenColumnKeys = useMemo(() => defaultHiddenColumnKeys ?? [], [defaultHiddenColumnKeys]);
-    const storageKeyValue = storageKey ? `dataTable:${storageKey}` : null;
-    const storedState = useMemo(() => {
-        if (!storageKeyValue) {
-            return null;
-        }
-        try {
-            const raw = sessionStorage.getItem(storageKeyValue);
-            if (!raw) {
-                return null;
-            }
-            return JSON.parse(raw) as {
-                visibleColumnKeys?: string[];
-                columnWidths?: Record<string, number>;
-            };
-        } catch {
-            return null;
-        }
-    }, [storageKeyValue]);
-    const initialVisibleColumnKeys = useMemo(
-        () => columns.filter((column) => !hiddenColumnKeys.includes(column.key)).map((column) => column.key),
-        [columns, hiddenColumnKeys]
-    );
-    const initialVisibleColumns = useMemo(() => {
-        if (storedState?.visibleColumnKeys?.length) {
-            return storedState.visibleColumnKeys;
-        }
-        return initialVisibleColumnKeys;
-    }, [initialVisibleColumnKeys, storedState]);
-    const [visibleColumnKeys, setVisibleColumnKeys] = useState<string[]>(initialVisibleColumns);
-    const [columnWidths, setColumnWidths] = useState<Record<string, number>>(() => storedState?.columnWidths ?? {});
-    const [settingsAnchor, setSettingsAnchor] = useState<HTMLElement | null>(null);
-    const headerRefs = useRef<Record<string, HTMLDivElement | null>>({});
-    const resizeState = useRef<{ key: string; startX: number; startWidth: number } | null>(null);
+  const hasRows = rows.length > 0;
 
-    const normalizeVisibleColumns = useCallback(
-        (keys: string[]) => columnOrder.filter((key) => keys.includes(key)),
-        [columnOrder]
-    );
+  const columnOrder = useMemo(() => columns.map((c) => c.key), [columns]);
+  const hiddenColumnKeys = useMemo(() => defaultHiddenColumnKeys ?? [], [defaultHiddenColumnKeys]);
 
-    useEffect(() => {
-        setVisibleColumnKeys((prev) => {
-            if (prev.length === 0 || prev.every((key) => !columnOrder.includes(key))) {
-                return initialVisibleColumnKeys;
-            }
-            return normalizeVisibleColumns(prev);
-        });
-    }, [columnOrder, initialVisibleColumnKeys, normalizeVisibleColumns]);
+  const storageKeyValue = storageKey ? `dataTable:${storageKey}` : null;
+  const storedState = useMemo(() => {
+    if (!storageKeyValue) return null;
+    try {
+      const raw = sessionStorage.getItem(storageKeyValue);
+      if (!raw) return null;
+      return JSON.parse(raw) as {
+        visibleColumnKeys?: string[];
+        columnWidths?: Record<string, number>;
+      };
+    } catch {
+      return null;
+    }
+  }, [storageKeyValue]);
 
-    useEffect(() => {
-        if (!storageKeyValue) {
-            return;
-        }
-        const payload = {
-            visibleColumnKeys,
-            columnWidths
-        };
-        sessionStorage.setItem(storageKeyValue, JSON.stringify(payload));
-    }, [columnWidths, storageKeyValue, visibleColumnKeys]);
+  const initialVisibleColumnKeys = useMemo(
+    () => columns.filter((c) => !hiddenColumnKeys.includes(c.key)).map((c) => c.key),
+    [columns, hiddenColumnKeys]
+  );
 
+  const [visibleColumnKeys, setVisibleColumnKeys] = useState<string[]>(
+    storedState?.visibleColumnKeys?.length ? storedState.visibleColumnKeys : initialVisibleColumnKeys
+  );
 
-    const handleVisibleColumnsChange = (event: SelectChangeEvent<string[]>) => {
-        const value = event.target.value;
-        const nextKeys = Array.isArray(value) ? value : value.split(',');
-        if (nextKeys.length === 0) {
-            return;
-        }
-        setVisibleColumnKeys(normalizeVisibleColumns(nextKeys));
+  const [columnWidths, setColumnWidths] = useState<Record<string, number>>(
+    () => storedState?.columnWidths ?? {}
+  );
+  const [settingsAnchor, setSettingsAnchor] = useState<HTMLElement | null>(null);
+
+  const scrollerRef = useRef<HTMLDivElement | null>(null);
+  const headerRefs = useRef<Record<string, HTMLDivElement | null>>({});
+  const resizeRef = useRef<ResizeSession | null>(null);
+
+  const [scrollerWidth, setScrollerWidth] = useState<number>(0);
+
+  const columnsWithIndex = useMemo(() => columns.map((column, index) => ({ ...column, index })), [columns]);
+
+  const normalizeVisibleColumns = useCallback(
+    (keys: string[]) => columnOrder.filter((key) => keys.includes(key)),
+    [columnOrder]
+  );
+
+  useEffect(() => {
+    setVisibleColumnKeys((prev) => {
+      if (prev.length === 0 || prev.every((key) => !columnOrder.includes(key))) return initialVisibleColumnKeys;
+      return normalizeVisibleColumns(prev);
+    });
+  }, [columnOrder, initialVisibleColumnKeys, normalizeVisibleColumns]);
+
+  const visibleColumns = useMemo(
+    () => columnsWithIndex.filter((c) => visibleColumnKeys.includes(c.key)),
+    [columnsWithIndex, visibleColumnKeys]
+  );
+
+  const hasCustomWidths = useMemo(
+    () => Object.values(columnWidths).some((w) => typeof w === 'number'),
+    [columnWidths]
+  );
+
+  useEffect(() => {
+    if (!storageKeyValue) return;
+    sessionStorage.setItem(storageKeyValue, JSON.stringify({ visibleColumnKeys, columnWidths }));
+  }, [columnWidths, storageKeyValue, visibleColumnKeys]);
+
+  const handleVisibleColumnsChange = (event: SelectChangeEvent<string[]>) => {
+    const value = event.target.value;
+    const nextKeys = Array.isArray(value) ? value : value.split(',');
+    if (nextKeys.length === 0) return;
+    setVisibleColumnKeys(normalizeVisibleColumns(nextKeys));
+  };
+
+  const handleToggleColumn = (key: string) => {
+    setVisibleColumnKeys((prev) => {
+      const next = prev.includes(key) ? prev.filter((k) => k !== key) : [...prev, key];
+      return next.length > 0 ? normalizeVisibleColumns(next) : prev;
+    });
+  };
+
+  const handleShowAllColumns = () => setVisibleColumnKeys(columnOrder);
+  const handleResetWidths = () => setColumnWidths({});
+
+  const updateScrollerWidth = useCallback((el: HTMLDivElement) => {
+    setScrollerWidth(el.clientWidth);
+  }, []);
+
+  useEffect(() => {
+    const el = scrollerRef.current;
+    if (!el) return;
+
+    updateScrollerWidth(el);
+
+    const ro = new ResizeObserver(() => updateScrollerWidth(el));
+    ro.observe(el);
+
+    return () => ro.disconnect();
+  }, [updateScrollerWidth]);
+
+  const ensureManualWidths = useCallback(() => {
+    const next = visibleColumns.reduce<Record<string, number>>((acc, c) => {
+      const measured = headerRefs.current[c.key]?.offsetWidth;
+      const fallback = c.width ?? c.minWidth ?? 140;
+      acc[c.key] = typeof measured === 'number' && measured > 0 ? measured : fallback;
+      return acc;
+    }, {});
+    setColumnWidths(next);
+    return next;
+  }, [visibleColumns]);
+
+  // ------- "приклеить" последний столбец к правому краю в MANUAL, если всё помещается -------
+  const manualLayout = useMemo(() => {
+    if (!hasCustomWidths || visibleColumns.length === 0) {
+      return { containerWidth: '100%' as const, gridTemplateColumns: '' };
+    }
+
+    const last = visibleColumns[visibleColumns.length - 1];
+
+    const getWidth = (c: DataTableColumn) =>
+      typeof columnWidths[c.key] === 'number' ? columnWidths[c.key]! : c.width ?? c.minWidth ?? 140;
+
+    const fixedBeforeLast = visibleColumns.slice(0, -1).reduce((sum, c) => sum + getWidth(c), 0);
+    const lastWidth = getWidth(last);
+
+    const fits = scrollerWidth > 0 && fixedBeforeLast + lastWidth < scrollerWidth;
+
+    const template = fits
+      ? [...visibleColumns.slice(0, -1).map((c) => `${Math.max(0, Math.floor(getWidth(c)))}px`), 'minmax(0px, 1fr)'].join(
+          ' '
+        )
+      : visibleColumns.map((c) => `${Math.max(0, Math.floor(getWidth(c)))}px`).join(' ');
+
+    return {
+      containerWidth: fits ? ('100%' as const) : ('max-content' as const),
+      gridTemplateColumns: template,
     };
+  }, [columnWidths, hasCustomWidths, scrollerWidth, visibleColumns]);
 
-    const handleToggleColumn = (key: string) => {
-        setVisibleColumnKeys((prev) => {
-            const next = prev.includes(key) ? prev.filter((item) => item !== key) : [...prev, key];
-            return next.length > 0 ? normalizeVisibleColumns(next) : prev;
-        });
+  const gridTemplateColumns = useMemo(() => {
+    if (!visibleColumns.length) return '1fr';
+
+    if (hasCustomWidths) return manualLayout.gridTemplateColumns || '1fr';
+
+    const total = visibleColumns.reduce((sum, c) => sum + (c.fraction ?? 1), 0) || 1;
+    return visibleColumns
+      .map((c) => {
+        const fr = (c.fraction ?? 1) / total;
+        return `minmax(0px, ${fr}fr)`;
+      })
+      .join(' ');
+  }, [hasCustomWidths, manualLayout.gridTemplateColumns, visibleColumns]);
+
+  // --- Resizing ---
+  const onPointerMove = useCallback((e: PointerEvent) => {
+    const s = resizeRef.current;
+    if (!s) return;
+
+    const dx = e.clientX - s.startX;
+    const nextWidth = Math.max(0, s.startWidth + dx);
+    setColumnWidths((prev) => ({ ...prev, [s.key]: nextWidth }));
+  }, []);
+
+  const endResize = useCallback(() => {
+    if (!resizeRef.current) return;
+    resizeRef.current = null;
+
+    document.body.style.cursor = '';
+    document.body.style.userSelect = '';
+
+    window.removeEventListener('pointermove', onPointerMove);
+    window.removeEventListener('pointerup', endResize);
+    window.removeEventListener('pointercancel', endResize);
+  }, [onPointerMove]);
+
+  useEffect(() => {
+    return () => {
+      window.removeEventListener('pointermove', onPointerMove);
+      window.removeEventListener('pointerup', endResize);
+      window.removeEventListener('pointercancel', endResize);
     };
+  }, [endResize, onPointerMove]);
 
-    const handleShowAllColumns = () => {
-        setVisibleColumnKeys(columnOrder);
-    };
+  const handleResizeStart = useCallback(
+    (event: ReactMouseEvent<HTMLDivElement>, columnKey: string) => {
+      event.preventDefault();
 
-    const handleResetWidths = () => {
-        setColumnWidths({});
-    };
+      const manual = hasCustomWidths ? columnWidths : ensureManualWidths();
 
-    const columnMinWidths = useMemo(
-        () =>
-            columns.reduce<Record<string, number>>((acc, column) => {
-                acc[column.key] = column.minWidth ?? 80;
-                return acc;
-            }, {}),
-        [columns]
-    );
+      const headerWidth = headerRefs.current[columnKey]?.offsetWidth ?? manual[columnKey] ?? 140;
+      const currentWidth = typeof manual[columnKey] === 'number' ? manual[columnKey] : headerWidth;
 
-    const handleResizeMove = useCallback(
-        (event: MouseEvent) => {
-            if (!resizeState.current) {
-                return;
-            }
+      resizeRef.current = { key: columnKey, startX: event.clientX, startWidth: currentWidth };
 
-            const { key, startX, startWidth } = resizeState.current;
-            const minWidth = columnMinWidths[key] ?? 80;
-            const nextWidth = Math.max(minWidth, startWidth + event.clientX - startX);
-            setColumnWidths((prev) => ({ ...prev, [key]: nextWidth }));
-        },
-        [columnMinWidths]
-    );
+      document.body.style.cursor = 'col-resize';
+      document.body.style.userSelect = 'none';
 
-    const handleResizeEnd = useCallback(() => {
-        resizeState.current = null;
-        document.body.style.cursor = '';
-        document.body.style.userSelect = '';
-        window.removeEventListener('mousemove', handleResizeMove);
-        window.removeEventListener('mouseup', handleResizeEnd);
-    }, [handleResizeMove]);
+      window.addEventListener('pointermove', onPointerMove, { passive: true });
+      window.addEventListener('pointerup', endResize, { passive: true });
+      window.addEventListener('pointercancel', endResize, { passive: true });
+    },
+    [columnWidths, endResize, ensureManualWidths, hasCustomWidths, onPointerMove]
+  );
 
-    const handleResizeStart = useCallback(
-        (event: ReactMouseEvent<HTMLDivElement>, columnKey: string) => {
-            event.preventDefault();
-            const headerWidth = headerRefs.current[columnKey]?.offsetWidth ?? 160;
-            const currentWidth = columnWidths[columnKey] ?? headerWidth;
+  const showControls = enableColumnControls && columns.length > 1;
+  const settingsOpen = Boolean(settingsAnchor);
+  const selectedColumnCountLabel = `Выбрано: ${visibleColumnKeys.length}/${columns.length}`;
 
-            resizeState.current = {
-                key: columnKey,
-                startX: event.clientX,
-                startWidth: currentWidth
-            };
-            document.body.style.cursor = 'col-resize';
-            document.body.style.userSelect = 'none';
-            window.addEventListener('mousemove', handleResizeMove);
-            window.addEventListener('mouseup', handleResizeEnd);
-        },
-        [columnWidths, handleResizeEnd, handleResizeMove]
-    );
+  const getStickySide = useCallback(
+    (index: number, len: number): StickySide => {
+      const isFirst = index === 0;
+      const isLast = index === len - 1;
 
-    const columnsWithIndex = useMemo(
-        () => columns.map((column, index) => ({ ...column, index })),
-        [columns]
-    );
-    const visibleColumns = useMemo(
-        () => columnsWithIndex.filter((column) => visibleColumnKeys.includes(column.key)),
-        [columnsWithIndex, visibleColumnKeys]
-    );
-    const hasCustomWidths = useMemo(
-        () => Object.values(columnWidths).some((width) => typeof width === 'number'),
-        [columnWidths]
-    );
+      if (stickyFirstColumn && isFirst) return 'left';
+      if (stickyLastColumn && isLast) return 'right';
+      return false;
+    },
+    [stickyFirstColumn, stickyLastColumn]
+  );
 
-    const gridTemplateColumns = useMemo(() => {
-        if (hasCustomWidths) {
-            return visibleColumns
-                .map((column) => {
-                    const minWidth = column.minWidth ?? 80;
-                    const resolvedWidth = columnWidths[column.key] ?? column.width;
-                    if (typeof resolvedWidth === 'number') {
-                        return `minmax(${minWidth}px, ${Math.floor(resolvedWidth)}px)`;
-                    }
-                    return `minmax(${minWidth}px, 1fr)`;
-                })
-                .join(' ');
-        }
+  const content = () => {
+    if (statusContent) return <Box sx={{ padding: 2 }}>{statusContent}</Box>;
 
-        const totalFraction = visibleColumns.reduce((sum, column) => sum + (column.fraction ?? 1), 0) || 1;
-        return visibleColumns
-            .map((column) => {
-                const fraction = column.fraction ?? 1;
-                const minWidth = column.minWidth ?? 80;
-                return `minmax(${minWidth}px, ${(fraction / totalFraction) * 1}fr)`;
-            })
-            .join(' ');
-    }, [columnWidths, hasCustomWidths, visibleColumns]);
-
-    const showControls = enableColumnControls && columns.length > 1;
-    const settingsOpen = Boolean(settingsAnchor);
-    const selectedColumnCountLabel = `Выбрано: ${visibleColumnKeys.length}/${columns.length}`;
-
-    const content = () => {
-        if (statusContent) {
-            return <Box sx={{ padding: 2 }}>{statusContent}</Box>;
-        }
-
-        if (isLoading) {
-            return (
-                <Box sx={{ padding: 2 }}>
-                    <Typography variant="body2">Загрузка...</Typography>
-                </Box>
-            );
-        }
-
-        if (!hasRows) {
-            return (
-                <Box sx={{ padding: 2 }}>
-                    <Typography variant="body2">{emptyMessage}</Typography>
-                </Box>
-            );
-        }
-
-        return rows.map((row) => {
-            const cells = renderRow(row);
-            return (
-                <Box
-                    key={rowKey(row)}
-                    sx={{
-                        display: 'grid',
-                        gridTemplateColumns,
-                        alignItems: 'stretch',
-                        width: hasCustomWidths ? 'max-content' : '100%',
-                        minWidth: '100%',
-                        backgroundColor: tablePalette.surface,
-                        borderRadius: 2,
-                        overflow: 'hidden',
-                        transition: 'background-color 0.2s ease',
-                        '&:hover': {
-                            backgroundColor: tablePalette.rowHover,
-                            boxShadow: 'inset 0 0 0 2px rgba(47, 111, 214, 0.24)'
-                        },
-                        cursor: onRowClick ? 'pointer' : 'default'
-                    }}
-                    onClick={() => onRowClick?.(row)}
-                >
-                    {visibleColumns.map((column, index) => (
-                        <TableCell
-                            key={column.key}
-                            isLast={index === visibleColumns.length - 1}
-                            align={column.align}
-                            columnKey={column.key}
-                        >
-                            {cells[column.index]}
-                        </TableCell>
-                    ))}
-                </Box>
-            );
-        });
-    };
-
-    return (
-        <Box
-            sx={{
-                backgroundColor: tablePalette.surfaceMuted,
-                borderRadius: 3,
-                padding: 2.5,
-                border: `1px solid ${tablePalette.border}`,
-                boxShadow: '0 12px 28px rgba(15, 35, 75, 0.08)',
-                width: '100%'
-            }}
-        >
-            <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1.5 }}>
-                {showControls && (
-                    <Stack
-                        direction={{ xs: 'column', sm: 'row' }}
-                        spacing={1.5}
-                        alignItems={{ xs: 'stretch', sm: 'center' }}
-                        justifyContent="space-between"
-                    >
-                        <FormControl
-                            size="small"
-                            sx={{
-                                minWidth: 220,
-                                '& .MuiOutlinedInput-root': {
-                                    backgroundColor: tablePalette.surface,
-                                    borderRadius: 2
-                                },
-                                '& .MuiOutlinedInput-notchedOutline': {
-                                    borderColor: tablePalette.border
-                                },
-                                '& .MuiOutlinedInput-root:hover .MuiOutlinedInput-notchedOutline': {
-                                    borderColor: tablePalette.accent
-                                },
-                                '& .MuiOutlinedInput-root.Mui-focused .MuiOutlinedInput-notchedOutline': {
-                                    borderColor: tablePalette.accent
-                                },
-                                '& .MuiInputLabel-root': {
-                                    color: tablePalette.headerText
-                                },
-                                '& .MuiSvgIcon-root': {
-                                    color: tablePalette.accent
-                                }
-                            }}
-                        >
-                            <InputLabel id="columns-filter-label">Столбцы</InputLabel>
-                            <Select
-                                labelId="columns-filter-label"
-                                multiple
-                                value={visibleColumnKeys}
-                                label="Столбцы"
-                                onChange={handleVisibleColumnsChange}
-                                renderValue={() => selectedColumnCountLabel}
-                            >
-                                {columns.map((column) => (
-                                    <MenuItem key={column.key} value={column.key}>
-                                        <Checkbox checked={visibleColumnKeys.includes(column.key)} />
-                                        <ListItemText primary={column.label} />
-                                    </MenuItem>
-                                ))}
-                            </Select>
-                        </FormControl>
-                        <Stack direction="row" spacing={1} alignItems="center">
-                            <Button size="small" variant="outlined" sx={controlButtonSx} onClick={handleShowAllColumns}>
-                                Показать все
-                            </Button>
-                            <Button
-                                size="small"
-                                variant="outlined"
-                                sx={controlButtonSx}
-                                onClick={(event) => setSettingsAnchor(event.currentTarget)}
-                            >
-                                Настройки
-                            </Button>
-                        </Stack>
-                        <Menu
-                            anchorEl={settingsAnchor}
-                            open={settingsOpen}
-                            onClose={() => setSettingsAnchor(null)}
-                            MenuListProps={{ dense: true }}
-                        >
-                            <MenuItem disabled>Настройка столбцов</MenuItem>
-                            {columns.map((column) => (
-                                <MenuItem
-                                    key={column.key}
-                                    onClick={() => handleToggleColumn(column.key)}
-                                >
-                                    <Checkbox checked={visibleColumnKeys.includes(column.key)} />
-                                    <ListItemText primary={column.label} />
-                                </MenuItem>
-                            ))}
-                            <MenuItem onClick={handleShowAllColumns}>Показать все</MenuItem>
-                            <MenuItem onClick={handleResetWidths}>Сбросить ширину</MenuItem>
-                        </Menu>
-                    </Stack>
-                )}
-                <Box
-                    sx={{
-                        overflowX: 'auto',
-                        overflowY: 'hidden',
-                        width: '100%',
-                        paddingBottom: 0.5
-                    }}
-                >
-                    <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
-                        {showHeader && (
-                            <Box
-                                sx={{
-                                    display: 'grid',
-                                    gridTemplateColumns,
-                                    alignItems: 'stretch',
-                                    width: hasCustomWidths ? 'max-content' : '100%',
-                                    minWidth: '100%',
-                                    borderRadius: 2,
-                                    overflow: 'hidden',
-                                    border: `1px solid ${tablePalette.border}`,
-                                    borderBottom: 'none',
-                                    boxShadow: '0 6px 16px rgba(15, 35, 75, 0.06)'
-                                }}
-                            >
-                                {visibleColumns.map((column, index) => (
-                                    <TableCell
-                                        key={column.key}
-                                        isLast={index === visibleColumns.length - 1}
-                                        align={column.align}
-                                        columnKey={column.key}
-                                        isHeader
-                                        showResizer
-                                        setRef={(node) => {
-                                            headerRefs.current[column.key] = node;
-                                        }}
-                                        onResizeStart={(event) => handleResizeStart(event, column.key)}
-                                    >
-                                        {renderHeaderLabel(column.label)}
-                                    </TableCell>
-                                ))}
-                            </Box>
-                        )}
-                        {content()}
-                    </Box>
-                </Box>
-            </Box>
+    if (isLoading) {
+      return (
+        <Box sx={{ padding: 2 }}>
+          <Typography variant="body2">Загрузка...</Typography>
         </Box>
-    );
+      );
+    }
+
+    if (!hasRows) {
+      return (
+        <Box sx={{ padding: 2 }}>
+          <Typography variant="body2">{emptyMessage}</Typography>
+        </Box>
+      );
+    }
+
+    return rows.map((row) => {
+      const cells = renderRow(row);
+
+      return (
+        <Box
+          key={rowKey(row)}
+          sx={{
+            display: 'grid',
+            gridTemplateColumns,
+            alignItems: 'stretch',
+            width: hasCustomWidths ? manualLayout.containerWidth : '100%',
+            minWidth: '100%',
+            backgroundColor: tablePalette.surface,
+            borderRadius: 2,
+            overflow: 'hidden',
+            transition: 'background-color 0.2s ease',
+            '&:hover': {
+              backgroundColor: tablePalette.rowHover,
+              boxShadow: 'inset 0 0 0 2px rgba(47, 111, 214, 0.24)',
+            },
+            cursor: onRowClick ? 'pointer' : 'default',
+          }}
+          onClick={() => onRowClick?.(row)}
+        >
+          {visibleColumns.map((column, index) => {
+            const stickySide = getStickySide(index, visibleColumns.length);
+
+            return (
+              <TableCell
+                key={column.key}
+                isLast={index === visibleColumns.length - 1}
+                align={column.align}
+                columnKey={column.key}
+                stickySide={stickySide}
+              >
+                {cells[column.index]}
+              </TableCell>
+            );
+          })}
+        </Box>
+      );
+    });
+  };
+
+  return (
+    <Box
+      sx={{
+        backgroundColor: tablePalette.surfaceMuted,
+        borderRadius: 3,
+        padding: 2.5,
+        border: `1px solid ${tablePalette.border}`,
+        boxShadow: '0 12px 28px rgba(15, 35, 75, 0.08)',
+        width: '100%',
+      }}
+    >
+      <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1.5 }}>
+        {showControls && (
+          <Stack
+            direction={{ xs: 'column', sm: 'row' }}
+            spacing={1.5}
+            alignItems={{ xs: 'stretch', sm: 'center' }}
+            justifyContent="space-between"
+          >
+            <FormControl
+              size="small"
+              sx={{
+                minWidth: 220,
+                '& .MuiOutlinedInput-root': {
+                  backgroundColor: tablePalette.surface,
+                  borderRadius: 2,
+                },
+                '& .MuiOutlinedInput-notchedOutline': {
+                  borderColor: tablePalette.border,
+                },
+                '& .MuiOutlinedInput-root:hover .MuiOutlinedInput-notchedOutline': {
+                  borderColor: tablePalette.accent,
+                },
+                '& .MuiOutlinedInput-root.Mui-focused .MuiOutlinedInput-notchedOutline': {
+                  borderColor: tablePalette.accent,
+                },
+                '& .MuiInputLabel-root': {
+                  color: tablePalette.headerText,
+                },
+                '& .MuiSvgIcon-root': {
+                  color: tablePalette.accent,
+                },
+              }}
+            >
+              <InputLabel id="columns-filter-label">Столбцы</InputLabel>
+              <Select
+                labelId="columns-filter-label"
+                multiple
+                value={visibleColumnKeys}
+                label="Столбцы"
+                onChange={handleVisibleColumnsChange}
+                renderValue={() => selectedColumnCountLabel}
+              >
+                {columns.map((column) => (
+                  <MenuItem key={column.key} value={column.key}>
+                    <Checkbox checked={visibleColumnKeys.includes(column.key)} />
+                    <ListItemText primary={column.label} />
+                  </MenuItem>
+                ))}
+              </Select>
+            </FormControl>
+
+            <Stack direction="row" spacing={1} alignItems="center">
+              <Button size="small" variant="outlined" sx={controlButtonSx} onClick={handleShowAllColumns}>
+                Показать все
+              </Button>
+              <Button
+                size="small"
+                variant="outlined"
+                sx={controlButtonSx}
+                onClick={(event) => setSettingsAnchor(event.currentTarget)}
+              >
+                Настройки
+              </Button>
+            </Stack>
+
+            <Menu
+              anchorEl={settingsAnchor}
+              open={settingsOpen}
+              onClose={() => setSettingsAnchor(null)}
+              MenuListProps={{ dense: true }}
+            >
+              <MenuItem disabled>Настройка столбцов</MenuItem>
+              {columns.map((column) => (
+                <MenuItem key={column.key} onClick={() => handleToggleColumn(column.key)}>
+                  <Checkbox checked={visibleColumnKeys.includes(column.key)} />
+                  <ListItemText primary={column.label} />
+                </MenuItem>
+              ))}
+              <MenuItem onClick={handleShowAllColumns}>Показать все</MenuItem>
+              <MenuItem onClick={handleResetWidths}>Сбросить ширину</MenuItem>
+            </Menu>
+          </Stack>
+        )}
+
+        <Box
+          ref={scrollerRef}
+          onScroll={(e) => updateScrollerWidth(e.currentTarget)}
+          sx={{
+            overflowX: 'auto',
+            overflowY: 'hidden',
+            width: '100%',
+            paddingBottom: 0.5,
+          }}
+        >
+          <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
+            {showHeader && (
+              <Box
+                sx={{
+                  display: 'grid',
+                  gridTemplateColumns,
+                  alignItems: 'stretch',
+                  width: hasCustomWidths ? manualLayout.containerWidth : '100%',
+                  minWidth: '100%',
+                  borderRadius: 2,
+                  overflow: 'hidden',
+                  border: `1px solid ${tablePalette.border}`,
+                  borderBottom: 'none',
+                  boxShadow: '0 6px 16px rgba(15, 35, 75, 0.06)',
+                }}
+              >
+                {visibleColumns.map((column, index) => {
+                  const stickySide = getStickySide(index, visibleColumns.length);
+
+                  return (
+                    <TableCell
+                      key={column.key}
+                      isLast={index === visibleColumns.length - 1}
+                      align={column.align}
+                      columnKey={column.key}
+                      isHeader
+                      showResizer
+                      stickySide={stickySide}
+                      setRef={(node) => {
+                        headerRefs.current[column.key] = node;
+                      }}
+                      onResizeStart={(event) => handleResizeStart(event, column.key)}
+                    >
+                      {renderHeaderLabel(column.label)}
+                    </TableCell>
+                  );
+                })}
+              </Box>
+            )}
+
+            {content()}
+          </Box>
+        </Box>
+      </Box>
+    </Box>
+  );
 };

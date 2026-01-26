@@ -4,7 +4,7 @@ import { DataTable } from '@shared/components/DataTable';
 
 const columns = [
   { key: 'login', label: 'login', minWidth: 160, fraction: 1.2 },
-  { key: 'id_role', label: 'id_role', minWidth: 120, fraction: 0.6 },
+  { key: 'id_role', label: 'id_role', minWidth: 100, fraction: 0.6 },
   { key: 'role', label: 'role', minWidth: 160, fraction: 1 },
   { key: 'actions', label: '', minWidth: 140, fraction: 1 }
 ];
