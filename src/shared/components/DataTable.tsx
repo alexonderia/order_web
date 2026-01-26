@@ -1,5 +1,5 @@
 import type { MouseEvent as ReactMouseEvent, ReactNode } from 'react';
-import { useCallback, useEffect,  useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
     Box,
     Button,
@@ -69,6 +69,9 @@ const baseCellSx = {
     alignItems: 'center',
     boxSizing: 'border-box',
     minWidth: 0,
+    overflow: 'hidden',
+    textOverflow: 'ellipsis',
+    whiteSpace: 'nowrap',
     color: tablePalette.headerText,
     fontSize: 14,
     lineHeight: 1.4
@@ -251,6 +254,15 @@ export const DataTable = <T,>({
         setColumnWidths({});
     };
 
+    const columnMinWidths = useMemo(
+        () =>
+            columns.reduce<Record<string, number>>((acc, column) => {
+                acc[column.key] = column.minWidth ?? 80;
+                return acc;
+            }, {}),
+        [columns]
+    );
+
     const handleResizeMove = useCallback(
         (event: MouseEvent) => {
             if (!resizeState.current) {
@@ -258,10 +270,11 @@ export const DataTable = <T,>({
             }
 
             const { key, startX, startWidth } = resizeState.current;
-            const nextWidth = Math.max(60, startWidth + event.clientX - startX);
+            const minWidth = columnMinWidths[key] ?? 80;
+            const nextWidth = Math.max(minWidth, startWidth + event.clientX - startX);
             setColumnWidths((prev) => ({ ...prev, [key]: nextWidth }));
         },
-        []
+        [columnMinWidths]
     );
 
     const handleResizeEnd = useCallback(() => {
@@ -299,24 +312,34 @@ export const DataTable = <T,>({
         () => columnsWithIndex.filter((column) => visibleColumnKeys.includes(column.key)),
         [columnsWithIndex, visibleColumnKeys]
     );
-    const gridTemplateColumns = useMemo(() => {
-        const totalFraction = visibleColumns.reduce((sum, column) => sum + (column.fraction ?? 1), 0) || 1;
-        return visibleColumns
-            .map((column) => {
-                const fraction = column.fraction ?? 1;
-                const userWidth = columnWidths[column.key];
-                if (typeof userWidth === 'number') {
-                    return `minmax(80px, ${Math.floor(userWidth)}px)`;
-                }
-                return `minmax(0px, ${(fraction / totalFraction) * 1}fr)`;
-            })
-            .join(' ');
-    }, [columnWidths, visibleColumns]);
-
     const hasCustomWidths = useMemo(
         () => Object.values(columnWidths).some((width) => typeof width === 'number'),
         [columnWidths]
     );
+
+    const gridTemplateColumns = useMemo(() => {
+        if (hasCustomWidths) {
+            return visibleColumns
+                .map((column) => {
+                    const minWidth = column.minWidth ?? 80;
+                    const resolvedWidth = columnWidths[column.key] ?? column.width;
+                    if (typeof resolvedWidth === 'number') {
+                        return `minmax(${minWidth}px, ${Math.floor(resolvedWidth)}px)`;
+                    }
+                    return `minmax(${minWidth}px, 1fr)`;
+                })
+                .join(' ');
+        }
+
+        const totalFraction = visibleColumns.reduce((sum, column) => sum + (column.fraction ?? 1), 0) || 1;
+        return visibleColumns
+            .map((column) => {
+                const fraction = column.fraction ?? 1;
+                const minWidth = column.minWidth ?? 80;
+                return `minmax(${minWidth}px, ${(fraction / totalFraction) * 1}fr)`;
+            })
+            .join(' ');
+    }, [columnWidths, hasCustomWidths, visibleColumns]);
 
     const showControls = enableColumnControls && columns.length > 1;
     const settingsOpen = Boolean(settingsAnchor);
@@ -359,7 +382,8 @@ export const DataTable = <T,>({
                         overflow: 'hidden',
                         transition: 'background-color 0.2s ease',
                         '&:hover': {
-                            backgroundColor: tablePalette.rowHover
+                            backgroundColor: tablePalette.rowHover,
+                            boxShadow: 'inset 0 0 0 2px rgba(47, 111, 214, 0.24)'
                         },
                         cursor: onRowClick ? 'pointer' : 'default'
                     }}
@@ -388,12 +412,10 @@ export const DataTable = <T,>({
                 padding: 2.5,
                 border: `1px solid ${tablePalette.border}`,
                 boxShadow: '0 12px 28px rgba(15, 35, 75, 0.08)',
-                overflowX: 'auto',
-                overflowY: 'hidden',
                 width: '100%'
             }}
         >
-            <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1.5, minWidth: 0 }}>
+            <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1.5 }}>
                 {showControls && (
                     <Stack
                         direction={{ xs: 'column', sm: 'row' }}
@@ -477,40 +499,51 @@ export const DataTable = <T,>({
                         </Menu>
                     </Stack>
                 )}
-                {showHeader && (
-                    <Box
-                        sx={{
-                            display: 'grid',
-                            gridTemplateColumns,
-                            alignItems: 'stretch',
-                            width: hasCustomWidths ? 'max-content' : '100%',
-                            minWidth: 0,
-                            borderRadius: 2,
-                            overflow: 'hidden',
-                            border: `1px solid ${tablePalette.border}`,
-                            borderBottom: 'none',
-                            boxShadow: '0 6px 16px rgba(15, 35, 75, 0.06)'
-                        }}
-                    >
-                        {visibleColumns.map((column, index) => (
-                            <TableCell
-                                key={column.key}
-                                isLast={index === visibleColumns.length - 1}
-                                align={column.align}
-                                columnKey={column.key}
-                                isHeader
-                                showResizer
-                                setRef={(node) => {
-                                    headerRefs.current[column.key] = node;
+                <Box
+                    sx={{
+                        overflowX: 'auto',
+                        overflowY: 'hidden',
+                        width: '100%',
+                        paddingBottom: 0.5
+                    }}
+                >
+                    <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
+                        {showHeader && (
+                            <Box
+                                sx={{
+                                    display: 'grid',
+                                    gridTemplateColumns,
+                                    alignItems: 'stretch',
+                                    width: hasCustomWidths ? 'max-content' : '100%',
+                                    minWidth: '100%',
+                                    borderRadius: 2,
+                                    overflow: 'hidden',
+                                    border: `1px solid ${tablePalette.border}`,
+                                    borderBottom: 'none',
+                                    boxShadow: '0 6px 16px rgba(15, 35, 75, 0.06)'
                                 }}
-                                onResizeStart={(event) => handleResizeStart(event, column.key)}
                             >
-                                {renderHeaderLabel(column.label)}
-                            </TableCell>
-                        ))}
+                                {visibleColumns.map((column, index) => (
+                                    <TableCell
+                                        key={column.key}
+                                        isLast={index === visibleColumns.length - 1}
+                                        align={column.align}
+                                        columnKey={column.key}
+                                        isHeader
+                                        showResizer
+                                        setRef={(node) => {
+                                            headerRefs.current[column.key] = node;
+                                        }}
+                                        onResizeStart={(event) => handleResizeStart(event, column.key)}
+                                    >
+                                        {renderHeaderLabel(column.label)}
+                                    </TableCell>
+                                ))}
+                            </Box>
+                        )}
+                        {content()}
                     </Box>
-                )}
-                {content()}
+                </Box>
             </Box>
         </Box>
     );
