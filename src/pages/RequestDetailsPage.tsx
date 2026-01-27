@@ -332,31 +332,23 @@ export const RequestDetailsPage = ({ request, userLogin, onBack, onLogout }: Req
     ];
 
     return (
-        <Box sx={{ minHeight: '100vh', padding: { xs: 2, md: 4 } }}>
+        <Box sx={{ minHeight: '100vh', padding: { xs: 2, md: 4 }, backgroundColor: 'background.default' }}>
             <Stack direction="row" justifyContent="space-between" alignItems="center" mb={3}>
                 <Button
                     variant="outlined"
-                    sx={{
-                        borderRadius: 999,
-                        textTransform: 'none',
-                        paddingX: 4,
-                        borderColor: '#1f1f1f',
-                        color: '#1f1f1f'
-                    }}
+                    sx={{ paddingX: 4, borderColor: 'primary.main', color: 'primary.main' }}
                     onClick={onBack}
                 >
                     К списку заявок
                 </Button>
                 <Button
                     variant="outlined"
-                    sx={{
-                        borderRadius: 999,
-                        textTransform: 'none',
+                    sx={(theme) => ({
                         paddingX: 4,
-                        borderColor: '#1f1f1f',
-                        color: '#1f1f1f',
-                        backgroundColor: '#d9d9d9'
-                    }}
+                        borderColor: theme.palette.primary.main,
+                        color: theme.palette.primary.main,
+                        backgroundColor: theme.palette.primary.light
+                    })}
                     onClick={onLogout}
                 >
                     Выйти
@@ -389,7 +381,7 @@ export const RequestDetailsPage = ({ request, userLogin, onBack, onLogout }: Req
                         sx={{
                             minWidth: 200,
                             borderRadius: 999,
-                            backgroundColor: '#fff'
+                            backgroundColor: 'background.paper'
                         }}
                     >
                         {statusOptions.map((option) => (
@@ -400,15 +392,8 @@ export const RequestDetailsPage = ({ request, userLogin, onBack, onLogout }: Req
                     </Select>
                 </Stack>
                 <Button
-                    variant="outlined"
-                    sx={{
-                        borderRadius: 999,
-                        textTransform: 'none',
-                        paddingX: 4,
-                        borderColor: '#1f1f1f',
-                        color: '#1f1f1f',
-                        backgroundColor: '#d9d9d9'
-                    }}
+                    variant="contained"
+                    sx={{ paddingX: 4, boxShadow: 'none', '&:hover': { boxShadow: 'none' } }}
                     onClick={() => void handleSave()}
                     disabled={isSaving}
                 >
@@ -427,14 +412,15 @@ export const RequestDetailsPage = ({ request, userLogin, onBack, onLogout }: Req
             )}
 
             <Box
-                sx={{
+                sx={(theme) => ({
                     borderRadius: 2,
-                    border: '1px solid rgba(0,0,0,0.3)',
+                    border: `1px solid ${theme.palette.divider}`,
+                    backgroundColor: theme.palette.background.paper,
                     padding: { xs: 2, md: 3 },
                     display: 'grid',
                     gap: 3,
                     gridTemplateColumns: { xs: '1fr', md: '1.4fr 1fr' }
-                }}
+                })}
             >
                 <Stack spacing={2}>
                     <TextField
@@ -452,15 +438,13 @@ export const RequestDetailsPage = ({ request, userLogin, onBack, onLogout }: Req
                     {requestFileUrl ? (
                         <Button
                             variant="outlined"
-                            sx={{
-                                borderRadius: 999,
-                                textTransform: 'none',
+                            sx={(theme) => ({
                                 paddingX: 3,
-                                borderColor: '#1f1f1f',
-                                color: '#1f1f1f',
-                                backgroundColor: '#ffffff',
+                                borderColor: theme.palette.primary.main,
+                                color: theme.palette.primary.main,
+                                backgroundColor: theme.palette.background.paper,
                                 width: 'fit-content'
-                            }}
+                            })}
                             component="a"
                             href={requestFileUrl}
                             target="_blank"
@@ -471,15 +455,13 @@ export const RequestDetailsPage = ({ request, userLogin, onBack, onLogout }: Req
                     ) : (
                         <Button
                             variant="outlined"
-                            sx={{
-                                borderRadius: 999,
-                                textTransform: 'none',
+                            sx={(theme) => ({
                                 paddingX: 3,
-                                borderColor: '#1f1f1f',
-                                color: '#1f1f1f',
-                                backgroundColor: '#ffffff',
+                                borderColor: theme.palette.primary.main,
+                                color: theme.palette.primary.main,
+                                backgroundColor: theme.palette.background.paper,
                                 width: 'fit-content'
-                            }}
+                            })}
                             disabled
                         >
                             Скачать файл заявки
@@ -489,25 +471,23 @@ export const RequestDetailsPage = ({ request, userLogin, onBack, onLogout }: Req
                     {hasDeletedAlert && (
                         <Button
                             variant="contained"
-                            sx={{
-                                borderRadius: 999,
-                                textTransform: 'none',
+                            sx={(theme) => ({
                                 paddingX: 3,
                                 width: 'fit-content',
-                                backgroundColor: '#d32f2f',
-                                color: '#ffffff',
+                                backgroundColor: theme.palette.error.main,
+                                color: theme.palette.error.contrastText,
                                 boxShadow: 'none',
 
                                 '&:hover': {
-                                    backgroundColor: '#b71c1c', // нормальный hover
+                                    backgroundColor: theme.palette.error.dark,
                                     boxShadow: 'none'
                                 },
 
                                 '&:disabled': {
-                                    backgroundColor: '#ef9a9a',
-                                    color: '#ffffff'
+                                    backgroundColor: theme.palette.error.light,
+                                    color: theme.palette.error.contrastText
                                 }
-                            }}
+                            })}
                             onClick={() => void handleDeletedAlertViewed()}
                             disabled={isClearingDeletedAlert}
                         >

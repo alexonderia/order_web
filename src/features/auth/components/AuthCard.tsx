@@ -25,16 +25,16 @@ export const AuthCard = ({ onRegister, onLogin, isSubmitting, errorMessage }: Au
     return (
         <Paper
             elevation={0}
-            sx={{
+            sx={(theme) => ({
                 width: { xs: '90%', sm: 420 },
-                borderRadius: 2,
-                border: '1px solid #1f1f1f',
-                backgroundColor: '#dedede',
+                borderRadius: 3,
+                border: `1px solid ${theme.palette.divider}`,
+                backgroundColor: theme.palette.background.paper,
                 padding: { xs: 4, sm: 6 }
-            }}
+            })}
         >
             <Stack spacing={4} alignItems="center">
-                <Typography variant="h5" fontWeight={600} color="#1a1a1a">
+                <Typography variant="h5" fontWeight={600} color="text.primary">
                     Авторизация
                 </Typography>
                 <Stack spacing={2.5} width="100%" alignItems="center">
@@ -45,10 +45,10 @@ export const AuthCard = ({ onRegister, onLogin, isSubmitting, errorMessage }: Au
                         value={login}
                         onChange={(event) => setLogin(event.target.value)}
                         InputProps={{
-                            sx: {
+                            sx: (theme) => ({
                                 borderRadius: 999,
-                                backgroundColor: '#e2e2e2'
-                            }
+                                backgroundColor: theme.palette.primary.light
+                            })
                         }}
                     />
                     <TextField
@@ -59,25 +59,23 @@ export const AuthCard = ({ onRegister, onLogin, isSubmitting, errorMessage }: Au
                         value={password}
                         onChange={(event) => setPassword(event.target.value)}
                         InputProps={{
-                            sx: {
+                            sx: (theme) => ({
                                 borderRadius: 999,
-                                backgroundColor: '#e2e2e2'
-                            }
+                                backgroundColor: theme.palette.primary.light
+                            })
                         }}
                     />
                 </Stack>
                 <Stack spacing={2} width="100%" alignItems="center">
                     <Button
                         variant="outlined"
-                        sx={{
+                        sx={(theme) => ({
                             width: '100%',
                             borderRadius: 999,
                             textTransform: 'none',
-                            backgroundColor: '#fefefe',
-                            borderColor: '#1f1f1f',
-                            color: '#1f1f1f',
+                            backgroundColor: theme.palette.background.paper,
                             paddingY: 1.3
-                        }}
+                        })}
                         onClick={handleLogin}
                         disabled={isSubmitting}
                     >
@@ -85,15 +83,13 @@ export const AuthCard = ({ onRegister, onLogin, isSubmitting, errorMessage }: Au
                     </Button>
                     <Button
                         variant="outlined"
-                        sx={{
+                        sx={(theme) => ({
                             width: '100%',
                             borderRadius: 999,
                             textTransform: 'none',
-                            backgroundColor: '#dedede',
-                            borderColor: '#1f1f1f',
-                            color: '#1f1f1f',
+                            backgroundColor: theme.palette.primary.light,
                             paddingY: 1.3
-                        }}
+                        })}
                         onClick={handleRegister}
                         disabled={isSubmitting}
                     >

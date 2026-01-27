@@ -33,6 +33,7 @@ type DataTableProps<T> = {
   emptyMessage?: string;
   statusContent?: ReactNode;
   onRowClick?: (row: T) => void;
+  rowHoverOutlineColor?: string;
   showHeader?: boolean;
   enableColumnControls?: boolean;
   defaultHiddenColumnKeys?: string[];
@@ -180,6 +181,7 @@ export const DataTable = <T,>({
   emptyMessage = 'Данные отсутствуют.',
   statusContent,
   onRowClick,
+  rowHoverOutlineColor = 'rgba(47, 111, 214, 0.4)',
   showHeader = true,
   enableColumnControls = true,
   defaultHiddenColumnKeys,
@@ -446,7 +448,8 @@ export const DataTable = <T,>({
             transition: 'background-color 0.2s ease',
             '&:hover': {
               backgroundColor: tablePalette.rowHover,
-              boxShadow: 'inset 0 0 0 2px rgba(47, 111, 214, 0.24)',
+              outline: `2px solid ${rowHoverOutlineColor}`,
+              outlineOffset: -1,
             },
             cursor: onRowClick ? 'pointer' : 'default',
           }}

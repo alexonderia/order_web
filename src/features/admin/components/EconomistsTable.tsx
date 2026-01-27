@@ -32,12 +32,7 @@ export const EconomistsTable = ({ users, isLoading, getRoleLabel, onEdit }: Econ
         <Button
           variant="outlined"
           size="small"
-          sx={{
-            borderRadius: 999,
-            textTransform: 'none',
-            borderColor: '#1f1f1f',
-            color: '#1f1f1f'
-          }}
+          sx={{ borderColor: 'primary.main', color: 'primary.main' }}
           onClick={() => onEdit(user)}
         >
           Изменить

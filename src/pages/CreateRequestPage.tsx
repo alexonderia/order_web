@@ -1,4 +1,5 @@
 import { Box, Button, IconButton, Stack, TextField, Typography } from '@mui/material';
+import { alpha } from '@mui/material/styles';
 import { useMemo, useState } from 'react';
 import type { FormEvent } from 'react';
 
@@ -48,7 +49,7 @@ export const CreateRequestPage = ({
         <Box
             sx={{
                 minHeight: '100vh',
-                backgroundColor: '#e6e6e6',
+                backgroundColor: 'background.default',
                 display: 'flex',
                 alignItems: 'center',
                 justifyContent: 'center',
@@ -58,13 +59,14 @@ export const CreateRequestPage = ({
             <Box
                 component="form"
                 onSubmit={handleSubmit}
-                sx={{
+                sx={(theme) => ({
                     width: { xs: '100%', sm: 560 },
-                    backgroundColor: '#d9d9d9',
+                    backgroundColor: theme.palette.background.paper,
                     borderRadius: 4,
-                    border: '2px solid #1f1f1f',
-                    padding: { xs: 3, sm: 4 }
-                }}
+                    border: `1px solid ${theme.palette.divider}`,
+                    padding: { xs: 3, sm: 4 },
+                    boxShadow: '0 16px 32px rgba(15, 35, 75, 0.08)'
+                })}
             >
                 <Stack direction="row" justifyContent="space-between" alignItems="center" mb={2}>
                     <Typography variant="h5" fontWeight={600}>
@@ -73,7 +75,7 @@ export const CreateRequestPage = ({
                     <IconButton
                         aria-label="Закрыть"
                         onClick={onClose}
-                        sx={{ color: '#1f1f1f' }}
+                        sx={{ color: 'text.primary' }}
                     >
                         <Typography component="span" fontSize={28} lineHeight={1}>
                             ×
@@ -88,7 +90,7 @@ export const CreateRequestPage = ({
                     value={description}
                     onChange={(event) => setDescription(event.target.value)}
                     sx={{
-                        backgroundColor: '#ffffff',
+                        backgroundColor: 'background.paper',
                         borderRadius: 3,
                         '& .MuiOutlinedInput-root': {
                             borderRadius: 3
@@ -104,14 +106,14 @@ export const CreateRequestPage = ({
                         value={deadlineAt}
                         onChange={(event) => setDeadlineAt(event.target.value)}
                         inputProps={{ min: todayDate }}
-                        sx={{
-                            backgroundColor: '#d9d9d9',
+                        sx={(theme) => ({
+                            backgroundColor: alpha(theme.palette.primary.main, 0.08),
                             borderRadius: 999,
                             '& .MuiOutlinedInput-root': {
                                 borderRadius: 999,
-                                backgroundColor: '#d9d9d9'
+                                backgroundColor: 'transparent'
                             }
-                        }}
+                        })}
                     />
                 </Stack>
                 <Stack direction={{ xs: 'column', sm: 'row' }} spacing={2} mt={2} alignItems="center">
@@ -122,8 +124,8 @@ export const CreateRequestPage = ({
                             borderRadius: 999,
                             textTransform: 'none',
                             paddingX: 3,
-                            borderColor: '#1f1f1f',
-                            color: '#1f1f1f'
+                            borderColor: 'primary.main',
+                            color: 'primary.main'
                         }}
                     >
                         <Box component="span" sx={{ marginRight: 1 }}>
@@ -145,25 +147,30 @@ export const CreateRequestPage = ({
                     </Typography>
                 </Stack>
                 {!file ? (
-                    <Typography mt={1} variant="caption" color="#6b6b6b">
+                    <Typography mt={1} variant="caption" color="text.secondary">
                         Файл обязателен для отправки заявки.
                     </Typography>
                 ) : null}
                 <Button
-                    variant="outlined"
+                    variant="contained"
                     fullWidth
                     type="submit"
                     disabled={isSubmitting || !file}
-                    sx={{
+                    sx={(theme) => ({
                         marginTop: 3,
                         borderRadius: 999,
                         textTransform: 'none',
-                        borderColor: '#1f1f1f',
-                        color: '#1f1f1f',
-                        backgroundColor: '#ffffff',
+                        borderColor: theme.palette.primary.main,
+                        color: theme.palette.primary.contrastText,
+                        backgroundColor: theme.palette.primary.main,
                         paddingY: 1.2,
-                        fontSize: 18
-                    }}
+                        fontSize: 18,
+                        boxShadow: 'none',
+                        '&:hover': {
+                            backgroundColor: theme.palette.primary.dark,
+                            boxShadow: 'none'
+                        }
+                    })}
                 >
                     {isSubmitting ? 'Создание...' : 'Создать заявку'}
                 </Button>

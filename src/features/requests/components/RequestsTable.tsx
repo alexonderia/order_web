@@ -1,4 +1,5 @@
 import { Chip, Stack, Typography } from '@mui/material';
+import { alpha, useTheme } from '@mui/material/styles';
 import type { RequestWithOfferStats } from '@shared/api/getRequests';
 import { DataTable } from '@shared/components/DataTable';
 
@@ -53,7 +54,17 @@ const formatDate = (value: string | null, withTime = false) => {
     return new Intl.DateTimeFormat('ru-RU', options).format(date);
 };
 
-const NotificationContent = ({ countSubmitted, countDeleted }: { countSubmitted: number; countDeleted: number }) => {
+const NotificationContent = ({
+    countSubmitted,
+    countDeleted,
+    submittedColor,
+    deletedColor
+}: {
+    countSubmitted: number;
+    countDeleted: number;
+    submittedColor: string;
+    deletedColor: string;
+}) => {
     if (countSubmitted <= 0 && countDeleted <= 0) {
         return null;
     }
@@ -65,13 +76,13 @@ const NotificationContent = ({ countSubmitted, countDeleted }: { countSubmitted:
                     label={countSubmitted}
                     size="small"
                     variant="outlined"
-                    sx={{ borderColor: '#2e7d32', color: '#2e7d32', fontWeight: 600 }}
+                    sx={{ borderColor: submittedColor, color: submittedColor, fontWeight: 600 }}
                 />
                 <Chip
                     label={countDeleted}
                     size="small"
                     variant="outlined"
-                    sx={{ borderColor: '#c62828', color: '#c62828', fontWeight: 600 }}
+                    sx={{ borderColor: deletedColor, color: deletedColor, fontWeight: 600 }}
                 />
             </Stack>
         );
@@ -84,7 +95,7 @@ const NotificationContent = ({ countSubmitted, countDeleted }: { countSubmitted:
                 label={label}
                 size="small"
                 variant="outlined"
-                sx={{ borderColor: '#2e7d32', color: '#2e7d32', fontWeight: 600 }}
+                sx={{ borderColor: submittedColor, color: submittedColor, fontWeight: 600 }}
             />
         );
     }
@@ -95,12 +106,16 @@ const NotificationContent = ({ countSubmitted, countDeleted }: { countSubmitted:
             label={label}
             size="small"
             variant="outlined"
-            sx={{ borderColor: '#c62828', color: '#c62828', fontWeight: 600 }}
+            sx={{ borderColor: deletedColor, color: deletedColor, fontWeight: 600 }}
         />
     );
 };
 
 export const RequestsTable = ({ requests, isLoading, onRowClick }: RequestsTableProps) => {
+    const theme = useTheme();
+    const submittedColor = theme.palette.success.main;
+    const deletedColor = theme.palette.error.main;
+
     return (
         <DataTable
             columns={columns}
@@ -109,6 +124,7 @@ export const RequestsTable = ({ requests, isLoading, onRowClick }: RequestsTable
             isLoading={isLoading}
             emptyMessage="Заявки не найдены."
             onRowClick={onRowClick}
+            rowHoverOutlineColor={alpha(theme.palette.primary.main, 0.45)}
             storageKey="requests-table"
             renderRow={(row) => [
                 <Typography variant="body2">{row.id}</Typography>,
@@ -123,6 +139,8 @@ export const RequestsTable = ({ requests, isLoading, onRowClick }: RequestsTable
                 <NotificationContent
                     countSubmitted={row.count_submitted ?? 0}
                     countDeleted={row.count_deleted_alert ?? 0}
+                    submittedColor={submittedColor}
+                    deletedColor={deletedColor}
                 />
             ]}
         />

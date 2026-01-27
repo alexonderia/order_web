@@ -46,31 +46,21 @@ export const RequestsPage = ({ onCreateRequest, onLogout, userLogin, onRequestSe
     }, [fetchRequests, pollIntervalMs]);
     
     return (
-        <Box sx={{ minHeight: '100vh', padding: { xs: 2, md: 4 } }}>
+        <Box sx={{ minHeight: '100vh', padding: { xs: 2, md: 4 }, backgroundColor: 'background.default' }}>
             <Stack direction="row" justifyContent="space-between" alignItems="center" mb={3}>
                 <Button
-                    variant="outlined"
-                    sx={{
-                        borderRadius: 999,
-                        textTransform: 'none',
-                        paddingX: 4,
-                        borderColor: '#1f1f1f',
-                        color: '#1f1f1f'
-                    }}
+                    variant="contained"
+                    sx={{ paddingX: 4, boxShadow: 'none', '&:hover': { boxShadow: 'none' } }}
                     onClick={onCreateRequest}
                 >
                     Создать заявку
                 </Button>
                 <Button
                     variant="outlined"
-                    sx={{
-                        borderRadius: 999,
-                        textTransform: 'none',
+                    sx={(theme) => ({
                         paddingX: 4,
-                        borderColor: '#1f1f1f',
-                        color: '#1f1f1f',
-                        backgroundColor: '#d9d9d9'
-                    }}
+                        backgroundColor: theme.palette.primary.light
+                    })}
                     onClick={onLogout}
                 >
                     Выйти

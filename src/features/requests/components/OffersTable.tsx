@@ -1,5 +1,6 @@
 import type { ReactNode } from 'react';
 import { Box, MenuItem, Select, Stack, SvgIcon, Typography } from '@mui/material';
+import { useTheme } from '@mui/material/styles';
 import type { OfferDetails } from '@shared/api/getOffers';
 import { getDownloadUrl } from '@shared/api/fileDownload';
 import { DataTable } from '@shared/components/DataTable';
@@ -66,7 +67,7 @@ const getContactInfo = (offer: OfferDetails) => {
     return parts.length > 0 ? parts : ['-'];
 };
 
-const getNotificationStyle = (status: string | null): NotificationStyle => {
+const getNotificationStyle = (status: string | null, palette: { divider: string; text: string }): NotificationStyle => {
     if (status === 'accepted') {
         return {
             borderColor: '#2e7d32',
@@ -112,9 +113,9 @@ const getNotificationStyle = (status: string | null): NotificationStyle => {
     }
 
     return {
-        borderColor: '#d3dbe7',
+        borderColor: palette.divider,
         icon: (
-            <SvgIcon fontSize="small" sx={{ color: '#1f2a44' }}>
+            <SvgIcon fontSize="small" sx={{ color: palette.text }}>
                 <path d="M19 13H5V11H19V13Z" />
             </SvgIcon>
         )
@@ -129,7 +130,12 @@ export const OffersTable = ({
     statusOptions,
     onStatusChange
 }: OffersTableProps) => {
+    const theme = useTheme();
     const statusContent = errorMessage ? <Typography color="error">{errorMessage}</Typography> : undefined;
+    const notificationPalette = {
+        divider: theme.palette.divider,
+        text: theme.palette.text.primary
+    };
 
     return (
         <DataTable
@@ -141,7 +147,7 @@ export const OffersTable = ({
             statusContent={statusContent}
             storageKey="offers-table"
             renderRow={(offer) => {
-                const notificationStyle = getNotificationStyle(offer.status);
+                const notificationStyle = getNotificationStyle(offer.status, notificationPalette);
                 const fileUrl = getDownloadUrl(offer.id_file, offer.file_path);
                 const contactInfo = getContactInfo(offer);
                 const counterparty = offer.real_name ?? offer.tg_username ?? '-';
@@ -183,7 +189,7 @@ export const OffersTable = ({
                             target="_blank"
                             rel="noreferrer"
                             variant="body2"
-                            sx={{ color: '#1f1f1f', textDecoration: 'underline' }}
+                            sx={{ color: 'primary.main', textDecoration: 'underline' }}
                         >
                             Скачать
                         </Typography>
