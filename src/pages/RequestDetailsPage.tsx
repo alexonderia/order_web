@@ -11,10 +11,14 @@ import {
 import { updateRequest } from '@shared/api/updateRequest';
 import { getOffers } from '@shared/api/getOffers';
 import { updateOfferStatus } from '@shared/api/updateOfferStatus';
+import { notifyOfferComment } from '@shared/api/notifyOfferComment';
+import { getOfferComments } from '@shared/api/getOfferComments';
 import type { RequestWithOfferStats } from '@shared/api/getRequests';
 import { getRequests } from '@shared/api/getRequests';
 import { getDownloadUrl } from '@shared/api/fileDownload';
 import { markDeletedAlertViewed } from '@shared/api/markDeletedAlertViewed';
+import { OfferChatDrawer } from '@features/requests/components/OfferChatDrawer';
+import type { OfferChatMessage } from '@features/requests/components/OfferChatDrawer';
 import { OffersTable } from '@features/requests/components/OffersTable';
 import type { OfferDecisionStatus, OfferStatusOption } from '@features/requests/components/OffersTable';
 import type { OfferDetails } from '@shared/api/getOffers';
@@ -101,6 +105,10 @@ export const RequestDetailsPage = ({ request, userLogin, onBack, onLogout }: Req
     const [offersLoading, setOffersLoading] = useState(false);
     const [offersError, setOffersError] = useState<string | null>(null);
     const pollIntervalMs = 10000;
+    const [activeOfferChatId, setActiveOfferChatId] = useState<number | null>(null);
+    const [offerChatMessages, setOfferChatMessages] = useState<Record<number, OfferChatMessage[]>>({});
+    const [chatError, setChatError] = useState<string | null>(null);
+    const [isSendingComment, setIsSendingComment] = useState(false);
 
     const statusConfig = useMemo(
         () => statusOptions.find((option) => option.value === status) ?? statusOptions[0],
@@ -282,6 +290,79 @@ export const RequestDetailsPage = ({ request, userLogin, onBack, onLogout }: Req
                 [offerId]: previousStatus
             }));
             setOffersError(error instanceof Error ? error.message : 'Не удалось обновить статус оффера');
+        }
+    };
+
+    const handleOpenChat = async (offerId: number) => {
+        setActiveOfferChatId(offerId);
+        setChatError(null);
+        try {
+            const response = await getOfferComments({ offerId, userLogin });
+            const nextMessages = response.comments.flatMap((comment) => {
+                const createdAt = comment.created_at ?? new Date().toISOString();
+                const messages: OfferChatMessage[] = [
+                    {
+                        id: `comment-${comment.id}`,
+                        text: comment.comment,
+                        createdAt,
+                        author: 'web'
+                    }
+                ];
+                if (comment.answer) {
+                    messages.push({
+                        id: `answer-${comment.id}`,
+                        text: comment.answer,
+                        createdAt: comment.answered_at ?? createdAt,
+                        author: 'tg'
+                    });
+                }
+                return messages;
+            });
+            setOfferChatMessages((prev) => ({
+                ...prev,
+                [offerId]: nextMessages
+            }));
+        } catch (error) {
+            setChatError(error instanceof Error ? error.message : 'Не удалось загрузить чат по офферу');
+        }
+    };
+
+    const handleCloseChat = () => {
+        setActiveOfferChatId(null);
+        setChatError(null);
+    };
+
+    const handleSendComment = async (comment: string) => {
+        if (!activeOfferChatId) {
+            return false;
+        }
+        setIsSendingComment(true);
+        setChatError(null);
+        try {
+            const response = await notifyOfferComment({
+                id_user_web: userLogin,
+                offer_id: activeOfferChatId,
+                comment
+            });
+            const createdAt = response.comment?.created_at ?? new Date().toISOString();
+            setOfferChatMessages((prev) => ({
+                ...prev,
+                [activeOfferChatId]: [
+                    ...(prev[activeOfferChatId] ?? []),
+                    {
+                        id: `${activeOfferChatId}-${createdAt}-${Math.random().toString(16).slice(2)}`,
+                        text: response.comment?.comment ?? comment,
+                        createdAt,
+                        author: 'web'
+                    }
+                ]
+            }));
+            return true;
+        } catch (error) {
+            setChatError(error instanceof Error ? error.message : 'Не удалось отправить комментарий');
+            return false;
+        } finally {
+            setIsSendingComment(false);
         }
     };
 
@@ -521,8 +602,18 @@ export const RequestDetailsPage = ({ request, userLogin, onBack, onLogout }: Req
                     errorMessage={offersError}
                     statusOptions={offerStatusOptions}
                     onStatusChange={(offerId, value) => void handleOfferStatusChange(offerId, value)}
+                    onOpenChat={(offerId) => void handleOpenChat(offerId)}
                 />
             </Box>
+            <OfferChatDrawer
+                open={Boolean(activeOfferChatId)}
+                offerId={activeOfferChatId}
+                messages={activeOfferChatId ? offerChatMessages[activeOfferChatId] ?? [] : []}
+                isSending={isSendingComment}
+                errorMessage={chatError}
+                onClose={handleCloseChat}
+                onSend={handleSendComment}
+            />
         </Box>
     );
 };

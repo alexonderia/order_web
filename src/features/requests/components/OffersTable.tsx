@@ -1,5 +1,5 @@
 import type { ReactNode } from 'react';
-import { Box, MenuItem, Select, Stack, SvgIcon, Typography } from '@mui/material';
+import { Box, Button, MenuItem, Select, Stack, SvgIcon, Typography } from '@mui/material';
 import { useTheme } from '@mui/material/styles';
 import type { OfferDetails } from '@shared/api/getOffers';
 import { getDownloadUrl } from '@shared/api/fileDownload';
@@ -19,6 +19,7 @@ type OffersTableProps = {
     errorMessage?: string | null;
     statusOptions: OfferStatusOption[];
     onStatusChange: (offerId: number, value: OfferDecisionStatus) => void;
+    onOpenChat: (offerId: number) => void;
 };
 
 type NotificationStyle = {
@@ -34,7 +35,8 @@ const columns = [
     { key: 'createdAt', label: 'Дата создания', minWidth: 120, fraction: 1.1 },
     { key: 'updatedAt', label: 'Дата изменения', minWidth: 120, fraction: 1.1 },
     { key: 'file', label: 'КП', minWidth: 100, fraction: 1 },
-    { key: 'statusSelect', label: 'Статус', minWidth: 140, fraction: 1 }
+    { key: 'statusSelect', label: 'Статус', minWidth: 140, fraction: 1 },
+    { key: 'chat', label: 'Чат', minWidth: 150, fraction: 1 }
 ];
 
 
@@ -122,13 +124,17 @@ const getNotificationStyle = (status: string | null, palette: { divider: string;
     };
 };
 
+const hasNewChatAnswer = (offer: OfferDetails) =>
+    Boolean(offer.offer_chat_stats?.status_web && !offer.offer_chat_stats?.status_tg);
+
 export const OffersTable = ({
     offers,
     statusMap,
     isLoading,
     errorMessage,
     statusOptions,
-    onStatusChange
+    onStatusChange,
+    onOpenChat
 }: OffersTableProps) => {
     const theme = useTheme();
     const statusContent = errorMessage ? <Typography color="error">{errorMessage}</Typography> : undefined;
@@ -214,7 +220,22 @@ export const OffersTable = ({
                                 {option.label}
                             </MenuItem>
                         ))}
-                    </Select>
+                    </Select>,
+                    <Stack spacing={1} alignItems="flex-start">
+                        <Button
+                            variant="outlined"
+                            size="small"
+                            onClick={() => onOpenChat(offer.offer_id)}
+                            sx={{ textTransform: 'none', fontWeight: 600 }}
+                        >
+                            Открыть чат
+                        </Button>
+                        {hasNewChatAnswer(offer) && (
+                            <Typography variant="caption" color="error">
+                                Новый ответ — откройте чат
+                            </Typography>
+                        )}
+                    </Stack>
                 ];
             }}
         />

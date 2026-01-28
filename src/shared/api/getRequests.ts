@@ -19,6 +19,7 @@ export type RequestWithOfferStats = {
   updated_at: string;
   count_submitted: number;
   count_deleted_alert: number;
+  count_chat_alert?: number;
 };
 
 export type GetRequestsPayload = {

@@ -9,6 +9,11 @@ export type OfferDetails = {
   created_at: string;
   updated_at: string;
   file_path: string | null;
+  offer_chat_stats?: {
+    status_web: boolean | null;
+    status_tg: boolean | null;
+    updated_at?: string | null;
+  } | null;
   tg_username: string | null;
   real_name: string | null;
   id_contacts: number | null;

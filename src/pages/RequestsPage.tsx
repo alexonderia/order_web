@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState } from 'react';
 import { Box, Button, Stack, Typography } from '@mui/material';
 import { RequestsTable } from '@features/requests/components/RequestsTable';
+import { getOffers } from '@shared/api/getOffers';
 import { getRequests } from '@shared/api/getRequests';
 import type { RequestWithOfferStats } from '@shared/api/getRequests';
 
@@ -15,6 +16,7 @@ export const RequestsPage = ({ onCreateRequest, onLogout, userLogin, onRequestSe
     const [requests, setRequests] = useState<RequestWithOfferStats[]>([]);
     const [isLoading, setIsLoading] = useState(false);
     const [errorMessage, setErrorMessage] = useState<string | null>(null);
+    const [chatAlertsMap, setChatAlertsMap] = useState<Record<number, number>>({});
     const pollIntervalMs = 10000;
 
     const fetchRequests = useCallback(
@@ -45,6 +47,41 @@ export const RequestsPage = ({ onCreateRequest, onLogout, userLogin, onRequestSe
         return () => window.clearInterval(intervalId);
     }, [fetchRequests, pollIntervalMs]);
     
+    useEffect(() => {
+        let isMounted = true;
+        const loadChatAlerts = async () => {
+            if (requests.length === 0) {
+                if (isMounted) {
+                    setChatAlertsMap({});
+                }
+                return;
+            }
+            const results = await Promise.allSettled(
+                requests.map((request) => getOffers({ requestId: request.id, userLogin }))
+            );
+            const nextAlerts: Record<number, number> = {};
+            results.forEach((result, index) => {
+                if (result.status !== 'fulfilled') {
+                    return;
+                }
+                const offerList = result.value.offers ?? [];
+                const alertCount = offerList.filter(
+                    (offer) => offer.offer_chat_stats?.status_web && !offer.offer_chat_stats?.status_tg
+                ).length;
+                if (alertCount > 0) {
+                    nextAlerts[requests[index].id] = alertCount;
+                }
+            });
+            if (isMounted) {
+                setChatAlertsMap(nextAlerts);
+            }
+        };
+        void loadChatAlerts();
+        return () => {
+            isMounted = false;
+        };
+    }, [requests, userLogin]);
+
     return (
         <Box sx={{ minHeight: '100vh', padding: { xs: 2, md: 4 }, backgroundColor: 'background.default' }}>
             <Stack direction="row" justifyContent="space-between" alignItems="center" mb={3}>
@@ -71,7 +108,12 @@ export const RequestsPage = ({ onCreateRequest, onLogout, userLogin, onRequestSe
                     {errorMessage}
                 </Typography>
             )}
-            <RequestsTable requests={requests} isLoading={isLoading} onRowClick={onRequestSelect} />
+            <RequestsTable
+                requests={requests}
+                isLoading={isLoading}
+                onRowClick={onRequestSelect}
+                chatAlertsMap={chatAlertsMap}
+            />
         </Box>
     );
 };
