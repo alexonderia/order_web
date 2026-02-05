@@ -1,4 +1,4 @@
-import { apiConfig } from './client';
+import { fetchJson  } from './client';
 
 export type UpdateOfferStatusPayload = {
   id_user_web: string;
@@ -17,19 +17,12 @@ export type UpdateOfferStatusResponse = {
 export const updateOfferStatus = async (
   payload: UpdateOfferStatusPayload
 ): Promise<UpdateOfferStatusResponse> => {
-  const response = await fetch(`${apiConfig.baseUrl}/api/web/offers/status`, {
-    method: 'PATCH',
-    headers: {
-      'Content-Type': 'application/json'
+  return fetchJson<UpdateOfferStatusResponse>(
+    '/api/web/offers/status',
+    {
+      method: 'PATCH',
+      body: JSON.stringify(payload)
     },
-    body: JSON.stringify(payload)
-  });
-
-  if (!response.ok) {
-    const data = await response.json().catch(() => null);
-    const message = data?.detail ?? 'Ошибка обновления статуса оффера';
-    throw new Error(message);
-  }
-
-  return response.json();
+    'Ошибка обновления статуса оффера'
+  );
 };

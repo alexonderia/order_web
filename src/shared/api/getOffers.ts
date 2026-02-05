@@ -1,4 +1,4 @@
-import { apiConfig } from './client';
+import { fetchJson } from './client';
 
 export type OfferDetails = {
   offer_id: number;
@@ -35,15 +35,9 @@ export type GetOffersPayload = {
 
 export const getOffers = async (payload: GetOffersPayload): Promise<GetOffersResponse> => {
   const queryParams = new URLSearchParams({ id_user_web: payload.userLogin });
-  const response = await fetch(
-    `${apiConfig.baseUrl}/api/web/requests/${payload.requestId}/offers?${queryParams.toString()}`
+  return fetchJson<GetOffersResponse>(
+    `/api/web/requests/${payload.requestId}/offers?${queryParams.toString()}`,
+    { method: 'GET' },
+    'Ошибка загрузки офферов'
   );
-
-  if (!response.ok) {
-    const data = await response.json().catch(() => null);
-    const message = data?.detail ?? 'Ошибка загрузки офферов';
-    throw new Error(message);
-  }
-
-  return response.json();
 };

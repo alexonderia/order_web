@@ -1,12 +1,6 @@
-import { apiConfig } from './client';
-
-const normalizeBaseUrl = () => apiConfig.baseUrl.trim().replace(/\/$/, '');
 
 const resolveBaseUrl = () => {
-  const configuredBaseUrl = normalizeBaseUrl();
-  if (configuredBaseUrl) {
-    return configuredBaseUrl;
-  }
+  
 
   if (typeof window !== 'undefined' && window.location?.origin) {
     return window.location.origin;

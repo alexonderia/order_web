@@ -1,4 +1,4 @@
-import { apiConfig } from './client';
+import { fetchJson } from './client';
 
 export type NotifyOfferCommentPayload = {
   id_user_web: string;
@@ -21,19 +21,12 @@ export type NotifyOfferCommentResponse = {
 export const notifyOfferComment = async (
   payload: NotifyOfferCommentPayload
 ): Promise<NotifyOfferCommentResponse> => {
-  const response = await fetch(`${apiConfig.baseUrl}/api/web/offers/commented`, {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json'
+  return fetchJson<NotifyOfferCommentResponse>(
+    '/api/web/offers/commented',
+    {
+      method: 'POST',
+      body: JSON.stringify(payload)
     },
-    body: JSON.stringify(payload)
-  });
-
-  if (!response.ok) {
-    const data = await response.json().catch(() => null);
-    const message = data?.detail ?? 'Ошибка отправки комментария по офферу';
-    throw new Error(message);
-  }
-
-  return response.json();
+    'Ошибка отправки комментария по офферу'
+  );
 };

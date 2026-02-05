@@ -1,4 +1,4 @@
-import { apiConfig } from './client';
+import { fetchJson } from './client';
 
 export type TelegramUser = {
   id: number;
@@ -14,13 +14,9 @@ export type GetTelegramUsersResponse = {
 };
 
 export const getTelegramUsers = async (): Promise<GetTelegramUsersResponse> => {
-  const response = await fetch(`${apiConfig.baseUrl}/api/db/users-tg`);
-
-  if (!response.ok) {
-    const data = await response.json().catch(() => null);
-    const message = data?.detail ?? 'Ошибка загрузки контрагентов';
-    throw new Error(message);
-  }
-
-  return response.json();
+  return fetchJson<GetTelegramUsersResponse>(
+    '/api/db/users-tg',
+    { method: 'GET' },
+    'Ошибка загрузки контрагентов'
+  );
 };

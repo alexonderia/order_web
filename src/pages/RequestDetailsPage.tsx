@@ -23,13 +23,8 @@ import { OffersTable } from '@features/requests/components/OffersTable';
 import type { OfferDecisionStatus, OfferStatusOption } from '@features/requests/components/OffersTable';
 import type { OfferDetails } from '@shared/api/getOffers';
 import { DataTable } from '@shared/components/DataTable';
-
-type RequestDetailsPageProps = {
-    request: RequestWithOfferStats;
-    userLogin: string;
-    onLogout?: () => void;
-    onBack?: () => void;
-};
+import { useLocation, useNavigate } from 'react-router-dom';
+import { useAuth } from '@app/providers/AuthProvider';
 
 type RequestStatus = 'open' | 'review' | 'closed' | 'cancelled';
 
@@ -84,17 +79,23 @@ const detailsColumns = [
     { key: 'value', label: 'Значение' }
 ];
 
-export const RequestDetailsPage = ({ request, userLogin, onBack, onLogout }: RequestDetailsPageProps) => {
-    const [requestDetails, setRequestDetails] = useState<RequestWithOfferStats>(request);
-    const initialStatus = (statusOptions.find((o) => o.value === request.status)?.value ?? 'open') as RequestStatus;
+export const RequestDetailsPage = () => {
+    const navigate = useNavigate();
+    const location = useLocation();
+    const { session } = useAuth();
+    const request = (location.state as { request?: RequestWithOfferStats } | null)?.request;
+    const userLogin = session?.login ?? '';
+
+    const [requestDetails, setRequestDetails] = useState<RequestWithOfferStats | null>(request ?? null);
+    const initialStatus = (statusOptions.find((o) => o.value === request?.status)?.value ?? 'open') as RequestStatus;
 
     const [status, setStatus] = useState<RequestStatus>(initialStatus);
     const [baselineStatus, setBaselineStatus] = useState<RequestStatus>(initialStatus);
     const isRequestStatus = (value: unknown): value is RequestStatus =>
         value === 'open' || value === 'review' || value === 'closed' || value === 'cancelled';
 
-    const [deadline, setDeadline] = useState<string>(toDateInputValue(request.deadline_at));
-    const [baselineDeadline, setBaselineDeadline] = useState<string>(toDateInputValue(request.deadline_at));
+    const [deadline, setDeadline] = useState<string>(toDateInputValue(request?.deadline_at ?? null));
+    const [baselineDeadline, setBaselineDeadline] = useState<string>(toDateInputValue(request?.deadline_at ?? null));
     const [isSaving, setIsSaving] = useState(false);
     const [errorMessage, setErrorMessage] = useState<string | null>(null);
     const [successMessage, setSuccessMessage] = useState<string | null>(null);
@@ -114,13 +115,22 @@ export const RequestDetailsPage = ({ request, userLogin, onBack, onLogout }: Req
         () => statusOptions.find((option) => option.value === status) ?? statusOptions[0],
         [status]
     );
-    const requestFileUrl = useMemo(
-        () =>
+    const requestFileUrl = useMemo(() => {
+        if (!requestDetails) {
+            return null;
+        }
+        return (
             requestDetails.file?.download_url ??
-            getDownloadUrl(requestDetails.file?.id ?? requestDetails.id_file, requestDetails.file_path ?? null),
-        [requestDetails.file?.download_url, requestDetails.file?.id, requestDetails.id_file, requestDetails.file_path]
-    );
-    const hasDeletedAlert = (requestDetails.count_deleted_alert ?? 0) > 0;
+            getDownloadUrl(requestDetails.file?.id ?? requestDetails.id_file, requestDetails.file_path ?? null)
+        );
+    }, [
+        requestDetails?.file?.download_url,
+        requestDetails?.file?.id,
+        requestDetails?.id_file,
+        requestDetails?.file_path,
+        requestDetails
+    ]);
+    const hasDeletedAlert = (requestDetails?.count_deleted_alert ?? 0) > 0;
 
     const todayDate = useMemo(() => {
         const now = new Date();
@@ -129,17 +139,22 @@ export const RequestDetailsPage = ({ request, userLogin, onBack, onLogout }: Req
     }, []);
 
     useEffect(() => {
-        setRequestDetails(request);
+        if (request) {
+            setRequestDetails(request);
+        }
     }, [request]);
 
     const fetchOffers = useCallback(
         async (showLoading: boolean) => {
+            if (!requestDetails || !userLogin) {
+                return;
+            }
             if (showLoading) {
                 setOffersLoading(true);
             }
             setOffersError(null);
             try {
-                const data = await getOffers({ requestId: request.id, userLogin });
+                const data = await getOffers({ requestId: requestDetails.id, userLogin });
                 setOffers(data.offers ?? []);
                 const nextStatusMap = data.offers.reduce<Record<number, OfferDecisionStatus>>((acc, offer) => {
                     acc[offer.offer_id] = normalizeOfferStatus(offer.status);
@@ -154,13 +169,16 @@ export const RequestDetailsPage = ({ request, userLogin, onBack, onLogout }: Req
                 }
             }
         },
-        [request.id, userLogin]
+        [requestDetails, userLogin]
     );
 
     const fetchRequestDetails = useCallback(async () => {
+        if (!requestDetails || !userLogin) {
+            return;
+        }
         try {
             const data = await getRequests({ id_user_web: userLogin });
-            const nextRequest = data.requests.find((item) => item.id === request.id);
+            const nextRequest = data.requests.find((item) => item.id === requestDetails.id);
             if (!nextRequest) {
                 return;
             }
@@ -178,7 +196,7 @@ export const RequestDetailsPage = ({ request, userLogin, onBack, onLogout }: Req
         } catch (error) {
             setErrorMessage(error instanceof Error ? error.message : 'Не удалось обновить заявку');
         }
-    }, [baselineDeadline, baselineStatus, deadline, request.id, status, userLogin]);
+    }, [baselineDeadline, baselineStatus, deadline, requestDetails, status, userLogin]);
 
     useEffect(() => {
         void fetchOffers(true);
@@ -191,6 +209,10 @@ export const RequestDetailsPage = ({ request, userLogin, onBack, onLogout }: Req
     }, [fetchOffers, fetchRequestDetails, pollIntervalMs]);
     
     const handleSave = async () => {
+        const currentRequest = requestDetails;
+        if (!currentRequest) {
+            return;
+        }
         const statusChanged = status !== baselineStatus;
         const deadlineChanged = deadline !== baselineDeadline;
 
@@ -225,7 +247,7 @@ export const RequestDetailsPage = ({ request, userLogin, onBack, onLogout }: Req
         try {
             const payload = {
                 id_user_web: userLogin,
-                request_id: request.id,
+                request_id: currentRequest.id,
                 status: statusChanged ? status : null,
                 deadline_at: deadlineChanged ? `${deadline}T23:59:59` : null
             };
@@ -241,12 +263,17 @@ export const RequestDetailsPage = ({ request, userLogin, onBack, onLogout }: Req
                 setBaselineDeadline(nextDeadline);
                 setDeadline(nextDeadline);
             }
-            setRequestDetails((prev) => ({
-                ...prev,
-                status: response.request?.status ?? prev.status,
-                deadline_at: response.request?.deadline_at ?? prev.deadline_at,
-                updated_at: response.request?.updated_at ?? prev.updated_at
-            }));
+            setRequestDetails((prev) => {
+                if (!prev) {
+                    return prev;
+                }
+                return {
+                    ...prev,
+                    status: response.request?.status ?? prev.status,
+                    deadline_at: response.request?.deadline_at ?? prev.deadline_at,
+                    updated_at: response.request?.updated_at ?? prev.updated_at
+                };
+            });
             setSuccessMessage('Изменения сохранены');
         } catch (error) {
             setErrorMessage(error instanceof Error ? error.message : 'Не удалось сохранить изменения');
@@ -367,7 +394,7 @@ export const RequestDetailsPage = ({ request, userLogin, onBack, onLogout }: Req
     };
 
     const handleDeletedAlertViewed = async () => {
-        if (!hasDeletedAlert) {
+        if (!hasDeletedAlert || !requestDetails) {
             return;
         }
 
@@ -378,17 +405,35 @@ export const RequestDetailsPage = ({ request, userLogin, onBack, onLogout }: Req
                 id_user_web: userLogin,
                 request_id: requestDetails.id
             });
-            setRequestDetails((prev) => ({
-                ...prev,
-                count_deleted_alert: response.request_offer_stats.count_deleted_alert,
-                updated_at: response.request_offer_stats.updated_at ?? prev.updated_at
-            }));
+            setRequestDetails((prev) => {
+                if (!prev) {
+                    return prev;
+                }
+                return {
+                    ...prev,
+                    count_deleted_alert: response.request_offer_stats.count_deleted_alert,
+                    updated_at: response.request_offer_stats.updated_at ?? prev.updated_at
+                };
+            });
         } catch (error) {
             setErrorMessage(error instanceof Error ? error.message : 'Не удалось отметить уведомление');
         } finally {
             setIsClearingDeletedAlert(false);
         }
     };
+
+    if (!requestDetails || !userLogin) {
+        return (
+            <Box>
+                <Typography variant="h6" mb={2}>
+                    Нет данных для отображения заявки.
+                </Typography>
+                <Button variant="outlined" onClick={() => navigate('/requests')}>
+                    Вернуться к заявкам
+                </Button>
+            </Box>
+        );
+    }
 
     const detailsRows = [
         { id: 'creator', label: 'Создатель заявки', value: requestDetails.id_user_web },
@@ -412,28 +457,30 @@ export const RequestDetailsPage = ({ request, userLogin, onBack, onLogout }: Req
         { id: 'updated', label: 'Последнее изменение', value: formatDate(requestDetails.updated_at) }
     ];
 
+    if (!requestDetails || !userLogin) {
+        return (
+            <Box>
+                <Typography variant="h6" mb={2}>
+                    Нет данных для отображения заявки.
+                </Typography>
+                <Button variant="outlined" onClick={() => navigate('/requests')}>
+                    Вернуться к заявкам
+                </Button>
+            </Box>
+        );
+    }
+
     return (
-        <Box sx={{ minHeight: '100vh', padding: { xs: 2, md: 4 }, backgroundColor: 'background.default' }}>
+        <Box>
             <Stack direction="row" justifyContent="space-between" alignItems="center" mb={3}>
                 <Button
                     variant="outlined"
                     sx={{ paddingX: 4, borderColor: 'primary.main', color: 'primary.main' }}
-                    onClick={onBack}
+                    onClick={() => navigate('/requests')}
                 >
                     К списку заявок
                 </Button>
-                <Button
-                    variant="outlined"
-                    sx={(theme) => ({
-                        paddingX: 4,
-                        borderColor: theme.palette.primary.main,
-                        color: theme.palette.primary.main,
-                        backgroundColor: theme.palette.primary.light
-                    })}
-                    onClick={onLogout}
-                >
-                    Выйти
-                </Button>
+                <Box />
             </Stack>
 
             <Stack

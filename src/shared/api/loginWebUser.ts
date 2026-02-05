@@ -1,30 +1,34 @@
-import { apiConfig } from './client';
+import { fetchJson  } from './client';
 
 export type LoginWebUserPayload = {
   login: string;
   password: string;
 };
 
+export type AuthLink = {
+  href: string;
+  method: string;
+};
+
 export type LoginWebUserResponse = {
-  status: 'ok';
-  login: string;
-  role: number;
+  data: {
+    access_token: string;
+    token_type: string;
+    role_id: number;
+  };
+  _links?: {
+    self: AuthLink;
+    available_action?: AuthLink;
+  };
 };
 
-export const loginWebUser = async (payload: LoginWebUserPayload): Promise<LoginWebUserResponse> => {
-  const response = await fetch(`${apiConfig.baseUrl}/api/web/login`, {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json'
+export const loginWebUser = async (payload: LoginWebUserPayload): Promise<LoginWebUserResponse> =>
+  fetchJson<LoginWebUserResponse>(
+    '/api/v1/auth/login',
+    {
+      method: 'POST',
+      body: JSON.stringify(payload)
     },
-    body: JSON.stringify(payload)
-  });
-
-  if (!response.ok) {
-    const data = await response.json().catch(() => null);
-    const message = data?.detail ?? 'Ошибка авторизации';
-    throw new Error(message);
-  }
-
-  return response.json();
-};
+    'Ошибка авторизации',
+    false
+  );

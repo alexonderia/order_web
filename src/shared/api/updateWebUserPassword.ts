@@ -1,4 +1,4 @@
-import { apiConfig } from './client';
+import { fetchJson } from './client';
 
 export type UpdateWebUserPasswordPayload = {
   login: string;
@@ -14,19 +14,12 @@ export type UpdateWebUserPasswordResponse = {
 export const updateWebUserPassword = async (
   payload: UpdateWebUserPasswordPayload
 ): Promise<UpdateWebUserPasswordResponse> => {
-  const response = await fetch(`${apiConfig.baseUrl}/api/web/users/password`, {
-    method: 'PATCH',
-    headers: {
-      'Content-Type': 'application/json'
+  return fetchJson<UpdateWebUserPasswordResponse>(
+    '/api/web/users/password',
+    {
+      method: 'PATCH',
+      body: JSON.stringify(payload)
     },
-    body: JSON.stringify(payload)
-  });
-
-  if (!response.ok) {
-    const data = await response.json().catch(() => null);
-    const message = data?.detail ?? 'Ошибка обновления пароля';
-    throw new Error(message);
-  }
-
-  return response.json();
+    'Ошибка обновления пароля'
+  );
 };

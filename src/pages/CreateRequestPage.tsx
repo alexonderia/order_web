@@ -2,26 +2,13 @@ import { Box, Button, IconButton, Stack, TextField, Typography } from '@mui/mate
 import { alpha } from '@mui/material/styles';
 import { useMemo, useState } from 'react';
 import type { FormEvent } from 'react';
+import { useNavigate } from 'react-router-dom';
+import { useAuth } from '@app/providers/AuthProvider';
+import { createRequest } from '@shared/api/createRequest';
 
-export type CreateRequestFormData = {
-    description: string;
-    deadlineAt: string;
-    file: File | null;
-};
-
-type CreateRequestPageProps = {
-    onClose?: () => void;
-    onSubmit?: (data: CreateRequestFormData) => Promise<void>;
-    isSubmitting?: boolean;
-    errorMessage?: string | null;
-};
-
-export const CreateRequestPage = ({
-    onClose,
-    onSubmit,
-    isSubmitting = false,
-    errorMessage
-}: CreateRequestPageProps) => {
+export const CreateRequestPage = () => {
+    const navigate = useNavigate();
+    const { session } = useAuth();
     const todayDate = useMemo(() => {
         const now = new Date();
         const offsetMs = now.getTimezoneOffset() * 60000;
@@ -31,18 +18,39 @@ export const CreateRequestPage = ({
     const [deadlineAt, setDeadlineAt] = useState(todayDate);
     const [fileName, setFileName] = useState('');
     const [file, setFile] = useState<File | null>(null);
+    const [isSubmitting, setIsSubmitting] = useState(false);
+    const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
     const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
         event.preventDefault();
-        if (!onSubmit) {
+        if (!session?.login) {
+            setErrorMessage('Не удалось определить пользователя');
+            return;
+        }
+        if (!file) {
+            setErrorMessage('Файл обязателен для отправки заявки');
+            return;
+        }
+        if (!deadlineAt) {
+            setErrorMessage('Укажите дату сбора КП');
             return;
         }
 
-        await onSubmit({
-            description,
-            deadlineAt,
-            file
-        });
+        setIsSubmitting(true);
+        setErrorMessage(null);
+        try {
+            await createRequest({
+                id_user_web: session.login,
+                description: description.trim() || null,
+                deadline_at: `${deadlineAt}T00:00:00`,
+                file
+            });
+            navigate('/requests');
+        } catch (error) {
+            setErrorMessage(error instanceof Error ? error.message : 'Ошибка создания заявки');
+        } finally {
+            setIsSubmitting(false);
+        }
     };
 
     return (
@@ -74,7 +82,7 @@ export const CreateRequestPage = ({
                     </Typography>
                     <IconButton
                         aria-label="Закрыть"
-                        onClick={onClose}
+                        onClick={() => navigate('/requests')}
                         sx={{ color: 'text.primary' }}
                     >
                         <Typography component="span" fontSize={28} lineHeight={1}>

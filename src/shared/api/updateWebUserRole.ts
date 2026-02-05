@@ -1,4 +1,4 @@
-import { apiConfig } from './client';
+import { fetchJson } from './client';
 
 export type UpdateWebUserRolePayload = {
   login: string;
@@ -16,19 +16,12 @@ export type UpdateWebUserRoleResponse = {
 export const updateWebUserRole = async (
   payload: UpdateWebUserRolePayload
 ): Promise<UpdateWebUserRoleResponse> => {
-  const response = await fetch(`${apiConfig.baseUrl}/api/web/users/role`, {
-    method: 'PATCH',
-    headers: {
-      'Content-Type': 'application/json'
+  return fetchJson<UpdateWebUserRoleResponse>(
+    '/api/web/users/role',
+    {
+      method: 'PATCH',
+      body: JSON.stringify(payload)
     },
-    body: JSON.stringify(payload)
-  });
-
-  if (!response.ok) {
-    const data = await response.json().catch(() => null);
-    const message = data?.detail ?? 'Ошибка обновления роли';
-    throw new Error(message);
-  }
-
-  return response.json();
+    'Ошибка обновления роли'
+  );
 };

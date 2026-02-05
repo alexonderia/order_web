@@ -1,18 +1,16 @@
 import { useCallback, useEffect, useState } from 'react';
 import { Box, Button, Stack, Typography } from '@mui/material';
+import { useNavigate } from 'react-router-dom';
 import { RequestsTable } from '@features/requests/components/RequestsTable';
 import { getOffers } from '@shared/api/getOffers';
 import { getRequests } from '@shared/api/getRequests';
 import type { RequestWithOfferStats } from '@shared/api/getRequests';
+import { useAuth } from '@app/providers/AuthProvider';
 
-type RequestsPageProps = {
-    onCreateRequest?: () => void;
-    onLogout?: () => void;
-    userLogin: string;
-    onRequestSelect?: (request: RequestWithOfferStats) => void;
-};
-
-export const RequestsPage = ({ onCreateRequest, onLogout, userLogin, onRequestSelect }: RequestsPageProps) => {
+export const RequestsPage = () => {
+    const { session, logout } = useAuth();
+    const navigate = useNavigate();
+    const userLogin = session?.login ?? '';
     const [requests, setRequests] = useState<RequestWithOfferStats[]>([]);
     const [isLoading, setIsLoading] = useState(false);
     const [errorMessage, setErrorMessage] = useState<string | null>(null);
@@ -21,6 +19,10 @@ export const RequestsPage = ({ onCreateRequest, onLogout, userLogin, onRequestSe
 
     const fetchRequests = useCallback(
         async (showLoading: boolean) => {
+            if (!userLogin) {
+                setErrorMessage('Не удалось определить пользователя');
+                return;
+            }
             if (showLoading) {
                 setIsLoading(true);
             }
@@ -83,12 +85,12 @@ export const RequestsPage = ({ onCreateRequest, onLogout, userLogin, onRequestSe
     }, [requests, userLogin]);
 
     return (
-        <Box sx={{ minHeight: '100vh', padding: { xs: 2, md: 4 }, backgroundColor: 'background.default' }}>
+        <Box>
             <Stack direction="row" justifyContent="space-between" alignItems="center" mb={3}>
                 <Button
                     variant="contained"
                     sx={{ paddingX: 4, boxShadow: 'none', '&:hover': { boxShadow: 'none' } }}
-                    onClick={onCreateRequest}
+                    onClick={() => navigate('/requests/create')}
                 >
                     Создать заявку
                 </Button>
@@ -98,7 +100,7 @@ export const RequestsPage = ({ onCreateRequest, onLogout, userLogin, onRequestSe
                         paddingX: 4,
                         backgroundColor: theme.palette.primary.light
                     })}
-                    onClick={onLogout}
+                    onClick={logout}
                 >
                     Выйти
                 </Button>
@@ -111,7 +113,7 @@ export const RequestsPage = ({ onCreateRequest, onLogout, userLogin, onRequestSe
             <RequestsTable
                 requests={requests}
                 isLoading={isLoading}
-                onRowClick={onRequestSelect}
+                onRowClick={(request) => navigate(`/requests/${request.id}`, { state: { request } })}
                 chatAlertsMap={chatAlertsMap}
             />
         </Box>

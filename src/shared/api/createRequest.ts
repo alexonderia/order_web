@@ -1,4 +1,4 @@
-import { apiConfig } from './client';
+import { apiFetch } from './client';
 
 export type CreateRequestPayload = {
   id_user_web: string;
@@ -24,7 +24,7 @@ export const createRequest = async (payload: CreateRequestPayload): Promise<Crea
     formData.append('description', payload.description);
   }
 
-  const response = await fetch(`${apiConfig.baseUrl}/api/web/requests/create`, {
+  const response = await apiFetch('/api/web/requests/create', {
     method: 'POST',
     body: formData
   });

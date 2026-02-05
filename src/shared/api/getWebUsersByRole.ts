@@ -1,4 +1,4 @@
-import { apiConfig } from './client';
+import { fetchJson  } from './client';
 
 export type WebUser = {
   id: string;
@@ -12,13 +12,9 @@ export type GetWebUsersByRoleResponse = {
 };
 
 export const getWebUsersByRole = async (roleId: number): Promise<GetWebUsersByRoleResponse> => {
-  const response = await fetch(`${apiConfig.baseUrl}/api/db/users-web/role/${roleId}`);
-
-  if (!response.ok) {
-    const data = await response.json().catch(() => null);
-    const message = data?.detail ?? 'Ошибка загрузки пользователей';
-    throw new Error(message);
-  }
-
-  return response.json();
+  return fetchJson<GetWebUsersByRoleResponse>(
+    `/api/db/users-web/role/${roleId}`,
+    { method: 'GET' },
+    'Ошибка загрузки пользователей'
+  );
 };

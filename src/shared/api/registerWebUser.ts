@@ -1,4 +1,4 @@
-import { apiConfig } from './client';
+import { fetchJson } from './client';
 
 export type RegisterWebUserPayload = {
   login: string;
@@ -12,19 +12,12 @@ export type RegisterWebUserResponse = {
 };
 
 export const registerWebUser = async (payload: RegisterWebUserPayload): Promise<RegisterWebUserResponse> => {
-  const response = await fetch(`${apiConfig.baseUrl}/api/web/register`, {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json'
+  return fetchJson<RegisterWebUserResponse>(
+    '/api/web/register',
+    {
+      method: 'POST',
+      body: JSON.stringify(payload)
     },
-    body: JSON.stringify(payload)
-  });
-
-  if (!response.ok) {
-    const data = await response.json().catch(() => null);
-    const message = data?.detail ?? 'Ошибка регистрации';
-    throw new Error(message);
-  }
-
-  return response.json();
+    'Ошибка регистрации'
+  );
 };

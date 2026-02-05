@@ -1,4 +1,4 @@
-import { apiConfig } from './client';
+import { fetchJson  } from './client';
 
 export type UpdateRequestPayload = {
   id_user_web: string;
@@ -18,19 +18,12 @@ export type UpdateRequestResponse = {
 };
 
 export const updateRequest = async (payload: UpdateRequestPayload): Promise<UpdateRequestResponse> => {
-  const response = await fetch(`${apiConfig.baseUrl}/api/web/requests/update`, {
-    method: 'PATCH',
-    headers: {
-      'Content-Type': 'application/json'
+  return fetchJson<UpdateRequestResponse>(
+    '/api/web/requests/update',
+    {
+      method: 'PATCH',
+      body: JSON.stringify(payload)
     },
-    body: JSON.stringify(payload)
-  });
-
-  if (!response.ok) {
-    const data = await response.json().catch(() => null);
-    const message = data?.detail ?? 'Ошибка сохранения заявки';
-    throw new Error(message);
-  }
-
-  return response.json();
+    'Ошибка сохранения заявки'
+  );
 };

@@ -1,28 +1,35 @@
-import { useCallback, useEffect, useMemo, useState } from 'react';
-import { Box, Button, Stack, Typography } from '@mui/material';
-import { EconomistsTable } from '@features/admin/components/EconomistsTable';
-import { TelegramUsersTable } from '@features/admin/components/TelegramUsersTable';
-import { EditEconomistDialog } from '@features/admin/components/EditEconomistDialog';
-import type { WebUser } from '@shared/api/getWebUsersByRole';
-import { getWebUsersByRole } from '@shared/api/getWebUsersByRole';
-import { getTelegramUsers } from '@shared/api/getTelegramUsers';
-import type { TelegramUser } from '@shared/api/getTelegramUsers';
+import { zodResolver } from '@hookform/resolvers/zod';
+import {
+  Button,
+  Dialog,
+  DialogActions,
+  DialogContent,
+  DialogTitle,
+  MenuItem,
+  Paper,
+  Stack,
+  TextField,
+  Typography
+} from '@mui/material';
+import { useMemo, useState } from 'react';
+import { useForm } from 'react-hook-form';
+import { z } from 'zod';
+import { useAuth } from '@app/providers/AuthProvider';
+import { registerUser } from '@shared/api/registerUser';
 
-const ECONOMIST_ROLE_ID = 2;
+const schema = z.object({
+  login: z.string().min(3, 'Минимум 3 символа'),
+  password: z.string().min(6, 'Минимум 6 символов'),
+  role_id: z.number({ required_error: 'Выберите роль' })
+});
 
-type AdminPageProps = {
-  onLogout: () => void;
-};
+type FormValues = z.infer<typeof schema>;
 
-export const AdminPage = ({ onLogout }: AdminPageProps) => {
-  const [activeTab, setActiveTab] = useState<'economists' | 'contractors'>('contractors');
-  const [economists, setEconomists] = useState<WebUser[]>([]);
-  const [contractors, setContractors] = useState<TelegramUser[]>([]);
-  const [isLoadingEconomists, setIsLoadingEconomists] = useState(false);
-  const [isLoadingContractors, setIsLoadingContractors] = useState(false);
+export const AdminPage = () => {
+  const { session } = useAuth();
+  const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
-  const [selectedEconomist, setSelectedEconomist] = useState<WebUser | null>(null);
-  const pollIntervalMs = 10000;
+  const [successMessage, setSuccessMessage] = useState<string | null>(null);
 
   const roleOptions = useMemo(
     () => [
@@ -32,121 +39,122 @@ export const AdminPage = ({ onLogout }: AdminPageProps) => {
     []
   );
 
-  const getRoleLabel = useCallback(
-    (roleId: number) => roleOptions.find((role) => role.id === roleId)?.label ?? `Роль ${roleId}`,
-    [roleOptions]
-  );
+  const canCreateUser =
+    session?.availableAction?.href === '/api/v1/users/register' &&
+    session.availableAction.method.toUpperCase() === 'POST';
 
-  const fetchEconomists = useCallback(async (showLoading: boolean) => {
-    if (showLoading) {
-      setIsLoadingEconomists(true);
+  const {
+    register,
+    handleSubmit,
+    formState: { errors, isSubmitting },
+    reset
+  } = useForm<FormValues>({
+    resolver: zodResolver(schema),
+    defaultValues: {
+      login: '',
+      password: '',
+      role_id: roleOptions[0]?.id ?? 1
     }
+  });
+
+  const handleClose = () => {
+    setIsDialogOpen(false);
     setErrorMessage(null);
-    try {
-      const data = await getWebUsersByRole(ECONOMIST_ROLE_ID);
-      setEconomists(data.users);
-    } catch (error) {
-      setErrorMessage(error instanceof Error ? error.message : 'Ошибка загрузки экономистов');
-    } finally {
-      if (showLoading) {
-        setIsLoadingEconomists(false);
-      }
-    }
-  }, []);
-
-  const fetchContractors = useCallback(async (showLoading: boolean) => {
-    if (showLoading) {
-      setIsLoadingContractors(true);
-    }
-    setErrorMessage(null);
-    try {
-      const data = await getTelegramUsers();
-      setContractors(data.users);
-    } catch (error) {
-      setErrorMessage(error instanceof Error ? error.message : 'Ошибка загрузки контрагентов');
-    } finally {
-      if (showLoading) {
-        setIsLoadingContractors(false);
-      }
-    }
-  }, []);
-
-  useEffect(() => {
-    void fetchEconomists(true);
-    void fetchContractors(true);
-    const intervalId = window.setInterval(() => {
-      void fetchEconomists(false);
-      void fetchContractors(false);
-    }, pollIntervalMs);
-    return () => window.clearInterval(intervalId);
-  }, [fetchEconomists, fetchContractors, pollIntervalMs]);
-
-  const handleSaved = async () => {
-    setSelectedEconomist(null);
-    await fetchEconomists(true);
+    setSuccessMessage(null);
+    reset();
   };
 
+  const onSubmit = async (values: FormValues) => {
+    setErrorMessage(null);
+    setSuccessMessage(null);
+    try {
+      const response = await registerUser(values);
+      setSuccessMessage(`Пользователь ${response.data.user_id} создан.`);
+      reset();
+    } catch (error) {
+      setErrorMessage(error instanceof Error ? error.message : 'Не удалось создать пользователя');
+    }
+  };
+
+
   return (
-    <Box sx={{ minHeight: '100vh', padding: { xs: 2, md: 4 }, backgroundColor: 'background.default' }}>
-      <Stack direction="row" justifyContent="space-between" alignItems="center" mb={3} gap={2}>
-        <Stack direction="row" spacing={2}>
-          <Button
-            variant="outlined"
-            sx={(theme) => ({
-              paddingX: 4,
-              backgroundColor: activeTab === 'contractors' ? theme.palette.primary.light : 'transparent',
-              borderColor: theme.palette.primary.main
-            })}
-            onClick={() => setActiveTab('contractors')}
-          >
-            Контрагенты
-          </Button>
-          <Button
-            variant="outlined"
-            sx={(theme) => ({
-              paddingX: 4,
-              backgroundColor: activeTab === 'economists' ? theme.palette.primary.light : 'transparent',
-              borderColor: theme.palette.primary.main
-            })}
-            onClick={() => setActiveTab('economists')}
-          >
-            Экономисты
-          </Button>
+    <Stack spacing={3}>
+      <Paper sx={{ padding: { xs: 3, md: 4 }, borderRadius: 4 }}>
+        <Stack spacing={2}>
+          <Typography variant="h5" fontWeight={700}>
+            Администрирование
+          </Typography>
+          <Typography color="text.secondary">
+            Управляйте пользователями системы. Доступные действия приходят от backend.
+          </Typography>
+          {canCreateUser ? (
+            <Button
+              variant="contained"
+              sx={{ alignSelf: 'flex-start', boxShadow: 'none' }}
+              onClick={() => setIsDialogOpen(true)}
+            >
+              Добавить пользователя
+            </Button>
+          ) : (
+            <Typography variant="body2" color="text.secondary">
+              Нет доступных действий для создания пользователей.
+            </Typography>
+          )}
         </Stack>
-        <Button
-          variant="outlined"
-          sx={(theme) => ({
-            paddingX: 4,
-            backgroundColor: theme.palette.primary.light,
-            borderColor: theme.palette.primary.main
-          })}
-          onClick={onLogout}
-        >
-          Выйти
-        </Button>
-      </Stack>
-      {errorMessage && (
-        <Typography color="error" sx={{ mb: 2 }}>
-          {errorMessage}
-        </Typography>
-      )}
-      {activeTab === 'contractors' ? (
-        <TelegramUsersTable users={contractors} isLoading={isLoadingContractors} />
-      ) : (
-        <EconomistsTable
-          users={economists}
-          isLoading={isLoadingEconomists}
-          getRoleLabel={getRoleLabel}
-          onEdit={(user) => setSelectedEconomist(user)}
-        />
-      )}
-      <EditEconomistDialog
-        open={Boolean(selectedEconomist)}
-        user={selectedEconomist}
-        roleOptions={roleOptions}
-        onClose={() => setSelectedEconomist(null)}
-        onSaved={handleSaved}
-      />
-    </Box>
+      </Paper>
+
+      <Dialog open={isDialogOpen} onClose={handleClose} maxWidth="sm" fullWidth>
+        <DialogTitle>Создать пользователя</DialogTitle>
+        <DialogContent>
+          <Stack spacing={2.5} sx={{ mt: 1 }}>
+            <TextField
+              label="Роль"
+              select
+              error={Boolean(errors.role_id)}
+              helperText={errors.role_id?.message}
+              defaultValue={roleOptions[0]?.id ?? 1}
+              {...register('role_id', { valueAsNumber: true })}
+            >
+              {roleOptions.map((option) => (
+                <MenuItem key={option.id} value={option.id}>
+                  {option.label}
+                </MenuItem>
+              ))}
+            </TextField>
+            <TextField
+              label="Логин"
+              error={Boolean(errors.login)}
+              helperText={errors.login?.message}
+              {...register('login')}
+            />
+            <TextField
+              label="Пароль"
+              type="password"
+              error={Boolean(errors.password)}
+              helperText={errors.password?.message}
+              {...register('password')}
+            />
+            {errorMessage ? (
+              <Typography color="error" variant="body2">
+                {errorMessage}
+              </Typography>
+            ) : null}
+            {successMessage ? (
+              <Typography color="primary" variant="body2">
+                {successMessage}
+              </Typography>
+            ) : null}
+          </Stack>
+        </DialogContent>
+        <DialogActions sx={{ padding: 3 }}>
+          <Button variant="outlined" onClick={handleClose}>
+            Отмена
+          </Button>
+          <Button variant="contained" onClick={handleSubmit(onSubmit)} disabled={isSubmitting}>
+            {isSubmitting ? 'Сохранение...' : 'Создать'}
+          </Button>
+        </DialogActions>
+      </Dialog>
+    </Stack>
   );
 };

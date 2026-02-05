@@ -1,4 +1,4 @@
-import { apiConfig } from './client';
+import { fetchJson } from './client';
 
 export type OfferCommentRecord = {
   id: number;
@@ -26,15 +26,10 @@ export const getOfferComments = async (
   payload: GetOfferCommentsPayload
 ): Promise<GetOfferCommentsResponse> => {
   const queryParams = new URLSearchParams({ id_user_web: payload.userLogin });
-  const response = await fetch(
-    `${apiConfig.baseUrl}/api/web/offers/${payload.offerId}/comments?${queryParams.toString()}`
+  return fetchJson<GetOfferCommentsResponse>(
+    `/api/web/offers/${payload.offerId}/comments?${queryParams.toString()}`,
+    { method: 'GET' },
+    'Ошибка загрузки комментариев по офферу'
   );
 
-  if (!response.ok) {
-    const data = await response.json().catch(() => null);
-    const message = data?.detail ?? 'Ошибка загрузки комментариев по офферу';
-    throw new Error(message);
-  }
-
-  return response.json();
 };
