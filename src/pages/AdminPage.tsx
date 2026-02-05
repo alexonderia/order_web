@@ -1,44 +1,90 @@
 import { zodResolver } from '@hookform/resolvers/zod';
 import {
+  Alert,
   Button,
   Dialog,
-  DialogActions,
   DialogContent,
-  DialogTitle,
   MenuItem,
-  Paper,
   Stack,
   TextField,
   Typography
 } from '@mui/material';
-import { useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { z } from 'zod';
+import { UsersTable } from '@features/admin/components/UsersTable';
 import { useAuth } from '@app/providers/AuthProvider';
+import { getUsers, type UserListItem } from '@shared/api/getUsers';
 import { registerUser } from '@shared/api/registerUser';
 import { hasAvailableAction } from '@shared/auth/availableActions';
 
-const schema = z.object({
-  login: z.string().min(3, 'Минимум 3 символа'),
-  password: z.string().min(6, 'Минимум 6 символов'),
-  role_id: z.number({ required_error: 'Выберите роль' })
-});
+const schema = z
+  .object({
+    login: z.string().min(3, 'Минимум 3 символа'),
+    password: z.string().min(6, 'Минимум 6 символов'),
+    confirmPassword: z.string().min(6, 'Минимум 6 символов'),
+    role_id: z.number({ required_error: 'Выберите роль' })
+  })
+  .refine((data) => data.password === data.confirmPassword, {
+    message: 'Пароли не совпадают',
+    path: ['confirmPassword']
+  });
 
 type FormValues = z.infer<typeof schema>;
+
+type UserTab = 'contractors' | 'economists' | 'admins';
+
+const roleByTab: Record<UserTab, number> = {
+  contractors: 5,
+  economists: 4,
+  admins: 2
+};
+
+const tabOptions: Array<{ value: UserTab; label: string }> = [
+  { value: 'contractors', label: 'Контрагенты' },
+  { value: 'economists', label: 'Экономисты' },
+  { value: 'admins', label: 'Администраторы' }
+];
+
+const roleLabelsById: Record<number, string> = {
+  1: 'Суперадмин',
+  2: 'Админ',
+  3: 'Ведущий экономист',
+  4: 'Экономист',
+  5: 'Контрагент'
+};
+
+const actionButtonSx = {
+  borderRadius: '12px',
+  border: '1px solid #1f1f1f',
+  textTransform: 'none',
+  px: 3,
+  height: 44,
+  color: '#111',
+  minWidth: 180
+};
 
 export const AdminPage = () => {
   const { session } = useAuth();
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
+  const [activeTab, setActiveTab] = useState<UserTab>('contractors');
+  const [users, setUsers] = useState<UserListItem[]>([]);
+  const [isLoadingUsers, setIsLoadingUsers] = useState(false);
+  const [usersError, setUsersError] = useState<string | null>(null);
 
   const roleOptions = useMemo(
     () => [
-      { id: 1, label: 'Администратор' },
-      { id: 2, label: 'Экономист' }
+      { id: 2, label: roleLabelsById[2] },
+      { id: 3, label: roleLabelsById[3] },
+      { id: 4, label: roleLabelsById[4] },
+      { id: 5, label: roleLabelsById[5] }
     ],
     []
   );
+
+  const getRoleLabel = useCallback((roleId: number) => roleLabelsById[roleId] ?? `Роль ${roleId}`, []);
 
   const canCreateUser = hasAvailableAction(session, '/api/v1/users/register', 'POST');
 
@@ -52,9 +98,27 @@ export const AdminPage = () => {
     defaultValues: {
       login: '',
       password: '',
-      role_id: roleOptions[0]?.id ?? 1
+      confirmPassword: '',
+      role_id: roleOptions[0]?.id ?? 2
     }
   });
+
+  const loadUsers = useCallback(async () => {
+    setIsLoadingUsers(true);
+    setUsersError(null);
+    try {
+      const nextUsers = await getUsers(roleByTab[activeTab]);
+      setUsers(nextUsers);
+    } catch (error) {
+      setUsersError(error instanceof Error ? error.message : 'Не удалось загрузить список пользователей');
+    } finally {
+      setIsLoadingUsers(false);
+    }
+  }, [activeTab]);
+
+  useEffect(() => {
+    void loadUsers();
+  }, [loadUsers]);
 
   const handleClose = () => {
     setIsDialogOpen(false);
@@ -67,9 +131,14 @@ export const AdminPage = () => {
     setErrorMessage(null);
     setSuccessMessage(null);
     try {
-      const response = await registerUser(values);
+      const response = await registerUser({
+        login: values.login,
+        password: values.password,
+        role_id: values.role_id
+      });
       setSuccessMessage(`Пользователь ${response.data.user_id} создан.`);
       reset();
+      await loadUsers();
     } catch (error) {
       setErrorMessage(error instanceof Error ? error.message : 'Не удалось создать пользователя');
     }
@@ -77,41 +146,73 @@ export const AdminPage = () => {
 
 
   return (
-    <Stack spacing={3}>
-      <Paper sx={{ padding: { xs: 3, md: 4 }, borderRadius: 4 }}>
-        <Stack spacing={2}>
-          <Typography variant="h5" fontWeight={700}>
-            Администрирование
-          </Typography>
-          <Typography color="text.secondary">
-            Управляйте пользователями системы. Доступные действия приходят от backend.
-          </Typography>
-          {canCreateUser ? (
+    <Stack spacing={2}>
+      <Stack direction={{ xs: 'column', lg: 'row' }} justifyContent="space-between" gap={2} alignItems="center">
+        <Stack direction={{ xs: 'column', sm: 'row' }} gap={1.5} sx={{ width: '100%' }}>
+          {tabOptions.map((tab) => (
             <Button
-              variant="contained"
-              sx={{ alignSelf: 'flex-start', boxShadow: 'none' }}
-              onClick={() => setIsDialogOpen(true)}
+              key={tab.value}
+              variant="outlined"
+              onClick={() => setActiveTab(tab.value)}
+              sx={{
+                ...actionButtonSx,
+                backgroundColor: activeTab === tab.value ? '#e8e8e8' : '#f6f6f6',
+                fontWeight: activeTab === tab.value ? 600 : 500
+              }}
             >
-              Добавить пользователя
+              {tab.label}
             </Button>
-          ) : (
-            <Typography variant="body2" color="text.secondary">
-              Нет доступных действий для создания пользователей.
-            </Typography>
-          )}
+          ))}
         </Stack>
-      </Paper>
+        {canCreateUser ? (
+          <Button
+            variant="outlined"
+            sx={{ ...actionButtonSx, minWidth: 160, backgroundColor: '#f6f6f6', flexShrink: 0 }}
+            onClick={() => setIsDialogOpen(true)}
+          >
+            Добавить
+          </Button>
+        ) : (
+          <Typography variant="body2" color="text.secondary">
+            Нет доступных действий для создания пользователей.
+          </Typography>
+        )}
+      </Stack>
 
-      <Dialog open={isDialogOpen} onClose={handleClose} maxWidth="sm" fullWidth>
-        <DialogTitle>Создать пользователя</DialogTitle>
-        <DialogContent>
-          <Stack spacing={2.5} sx={{ mt: 1 }}>
+      {usersError ? <Alert severity="error">{usersError}</Alert> : null}
+
+      <UsersTable
+        users={users}
+        isLoading={isLoadingUsers}
+        emptyMessage="Список пользователей пока пуст."
+        getRoleLabel={getRoleLabel}
+      />
+
+      <Dialog
+        open={isDialogOpen}
+        onClose={handleClose}
+        maxWidth="sm"
+        fullWidth
+        PaperProps={{
+          sx: {
+            borderRadius: '12px',
+            border: '1px solid #101828',
+            backgroundColor: '#ececec',
+            p: { xs: 2.5, md: 3.5 }
+          }
+        }}
+      >
+        <DialogContent sx={{ p: 0 }}>
+          <Stack spacing={2.2}>
+            <Typography variant="h4" textAlign="center" fontWeight={700}>
+              Создание нового пользователя
+            </Typography>
             <TextField
-              label="Роль"
+              label="Роль пользователя"
               select
               error={Boolean(errors.role_id)}
               helperText={errors.role_id?.message}
-              defaultValue={roleOptions[0]?.id ?? 1}
+              defaultValue={roleOptions[0]?.id ?? 2}
               {...register('role_id', { valueAsNumber: true })}
             >
               {roleOptions.map((option) => (
@@ -133,26 +234,30 @@ export const AdminPage = () => {
               helperText={errors.password?.message}
               {...register('password')}
             />
-            {errorMessage ? (
-              <Typography color="error" variant="body2">
-                {errorMessage}
-              </Typography>
-            ) : null}
-            {successMessage ? (
-              <Typography color="primary" variant="body2">
-                {successMessage}
-              </Typography>
-            ) : null}
+            <TextField
+              label="Повторите пароль"
+              type="password"
+              error={Boolean(errors.confirmPassword)}
+              helperText={errors.confirmPassword?.message}
+              {...register('confirmPassword')}
+            />
+            {errorMessage ? <Alert severity="error">{errorMessage}</Alert> : null}
+            {successMessage ? <Alert severity="success">{successMessage}</Alert> : null}
+            <Stack direction={{ xs: 'column', sm: 'row' }} spacing={1.2} justifyContent="center">
+              <Button variant="outlined" onClick={handleClose} sx={{ ...actionButtonSx, minWidth: 180 }}>
+                Отмена
+              </Button>
+              <Button
+                variant="contained"
+                onClick={handleSubmit(onSubmit)}
+                disabled={isSubmitting}
+                sx={{ borderRadius: '12px', textTransform: 'none', minWidth: 220, boxShadow: 'none' }}
+              >
+                {isSubmitting ? 'Сохранение...' : 'Создать пользователя'}
+              </Button>
+            </Stack>
           </Stack>
         </DialogContent>
-        <DialogActions sx={{ padding: 3 }}>
-          <Button variant="outlined" onClick={handleClose}>
-            Отмена
-          </Button>
-          <Button variant="contained" onClick={handleSubmit(onSubmit)} disabled={isSubmitting}>
-            {isSubmitting ? 'Сохранение...' : 'Создать'}
-          </Button>
-        </DialogActions>
       </Dialog>
     </Stack>
   );
