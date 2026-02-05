@@ -11,6 +11,10 @@ type AuthSession = {
   availableAction?: AuthLink | null;
 };
 
+type PersistedAuthSession = AuthSession & {
+  available_action?: AuthLink | null;
+};
+
 type AuthContextValue = {
   session: AuthSession | null;
   isAuthenticated: boolean;
@@ -28,11 +32,14 @@ const parseSession = (raw: string | null): AuthSession | null => {
   }
 
   try {
-    const parsed = JSON.parse(raw) as AuthSession;
+    const parsed = JSON.parse(raw) as PersistedAuthSession;
     if (!parsed?.token || typeof parsed.roleId !== 'number' || !parsed.login) {
       return null;
     }
-    return parsed;
+    return {
+      ...parsed,
+      availableAction: parsed.availableAction ?? parsed.available_action ?? null
+    };
   } catch {
     return null;
   }
@@ -65,7 +72,8 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
         token: response.data.access_token,
         roleId: response.data.role_id,
         login: payload.login,
-        availableAction: response._links?.available_action ?? null
+        availableAction:
+          response._links?.availableAction ?? response._links?.available_action ?? null
       };
       setSession(nextSession);
       persistSession(nextSession);

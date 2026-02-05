@@ -19,6 +19,7 @@ export type LoginWebUserResponse = {
   _links?: {
     self: AuthLink;
     available_action?: AuthLink;
+    availableAction?: AuthLink;
   };
 };
 

@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from 'react';
-import { Box, Button, Stack, Typography } from '@mui/material';
+import { Box, Typography } from '@mui/material';
 import { useNavigate } from 'react-router-dom';
 import { RequestsTable } from '@features/requests/components/RequestsTable';
 import { getOffers } from '@shared/api/getOffers';
@@ -8,7 +8,7 @@ import type { RequestWithOfferStats } from '@shared/api/getRequests';
 import { useAuth } from '@app/providers/AuthProvider';
 
 export const RequestsPage = () => {
-    const { session, logout } = useAuth();
+    const { session } = useAuth();
     const navigate = useNavigate();
     const userLogin = session?.login ?? '';
     const [requests, setRequests] = useState<RequestWithOfferStats[]>([]);
@@ -86,25 +86,6 @@ export const RequestsPage = () => {
 
     return (
         <Box>
-            <Stack direction="row" justifyContent="space-between" alignItems="center" mb={3}>
-                <Button
-                    variant="contained"
-                    sx={{ paddingX: 4, boxShadow: 'none', '&:hover': { boxShadow: 'none' } }}
-                    onClick={() => navigate('/requests/create')}
-                >
-                    Создать заявку
-                </Button>
-                <Button
-                    variant="outlined"
-                    sx={(theme) => ({
-                        paddingX: 4,
-                        backgroundColor: theme.palette.primary.light
-                    })}
-                    onClick={logout}
-                >
-                    Выйти
-                </Button>
-            </Stack>
             {errorMessage && (
                 <Typography color="error" sx={{ mb: 2 }}>
                     {errorMessage}

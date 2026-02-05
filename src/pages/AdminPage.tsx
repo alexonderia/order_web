@@ -16,6 +16,7 @@ import { useForm } from 'react-hook-form';
 import { z } from 'zod';
 import { useAuth } from '@app/providers/AuthProvider';
 import { registerUser } from '@shared/api/registerUser';
+import { hasAvailableAction } from '@shared/auth/availableActions';
 
 const schema = z.object({
   login: z.string().min(3, 'Минимум 3 символа'),
@@ -39,9 +40,7 @@ export const AdminPage = () => {
     []
   );
 
-  const canCreateUser =
-    session?.availableAction?.href === '/api/v1/users/register' &&
-    session.availableAction.method.toUpperCase() === 'POST';
+  const canCreateUser = hasAvailableAction(session, '/api/v1/users/register', 'POST');
 
   const {
     register,
