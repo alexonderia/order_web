@@ -208,7 +208,7 @@ export const RequestsTable = ({ requests, isLoading, onRowClick, chatAlertsMap }
             renderRow={(row) => [
                 <Typography variant="body2">{row.id}</Typography>,
                 <Typography variant="body2">{row.description ?? '-'}</Typography>,
-                <Typography variant="body2">{row.status ?? '-'}</Typography>,
+                <Typography variant="body2">{row.status_label ?? row.status ?? '-'}</Typography>,
                 <Typography variant="body2">{formatDate(row.deadline_at)}</Typography>,
                 <Typography variant="body2">{formatDate(row.created_at)}</Typography>,
                 <Typography variant="body2">{formatDate(row.closed_at)}</Typography>,

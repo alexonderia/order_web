@@ -19,16 +19,12 @@ export const RequestsPage = () => {
 
     const fetchRequests = useCallback(
         async (showLoading: boolean) => {
-            if (!userLogin) {
-                setErrorMessage('Не удалось определить пользователя');
-                return;
-            }
             if (showLoading) {
                 setIsLoading(true);
             }
             setErrorMessage(null);
             try {
-                const data = await getRequests({ id_user_web: userLogin });
+                const data = await getRequests();
                 setRequests(data.requests);
             } catch (error) {
                 setErrorMessage(error instanceof Error ? error.message : 'Ошибка загрузки заявок');
@@ -38,7 +34,7 @@ export const RequestsPage = () => {
                 }
             }
         },
-        [userLogin]
+        []
     );
 
     useEffect(() => {

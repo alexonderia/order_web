@@ -31,7 +31,6 @@ const schema = z
   });
 
 type FormValues = z.infer<typeof schema>;
-
 type UserTab = 'contractors' | 'economists' | 'admins';
 
 const roleByTab: Record<UserTab, number> = {
@@ -55,12 +54,10 @@ const roleLabelsById: Record<number, string> = {
 };
 
 const actionButtonSx = {
-  borderRadius: '12px',
-  border: '1px solid #1f1f1f',
+  borderRadius: 999,
   textTransform: 'none',
   px: 3,
   height: 44,
-  color: '#111',
   minWidth: 180
 };
 
@@ -154,22 +151,17 @@ export const AdminPage = () => {
               key={tab.value}
               variant="outlined"
               onClick={() => setActiveTab(tab.value)}
-              sx={{
+              sx={(theme) => ({
                 ...actionButtonSx,
-                backgroundColor: activeTab === tab.value ? '#e8e8e8' : '#f6f6f6',
-                fontWeight: activeTab === tab.value ? 600 : 500
-              }}
+                backgroundColor: activeTab === tab.value ? theme.palette.primary.light : theme.palette.background.paper
+              })}
             >
               {tab.label}
             </Button>
           ))}
         </Stack>
         {canCreateUser ? (
-          <Button
-            variant="outlined"
-            sx={{ ...actionButtonSx, minWidth: 160, backgroundColor: '#f6f6f6', flexShrink: 0 }}
-            onClick={() => setIsDialogOpen(true)}
-          >
+          <Button variant="outlined" sx={actionButtonSx} onClick={() => setIsDialogOpen(true)}>
             Добавить
           </Button>
         ) : (
@@ -195,16 +187,14 @@ export const AdminPage = () => {
         fullWidth
         PaperProps={{
           sx: {
-            borderRadius: '12px',
-            border: '1px solid #101828',
-            backgroundColor: '#ececec',
-            p: { xs: 2.5, md: 3.5 }
+            borderRadius: 4,
+            p: { xs: 2.5, md: 3 }
           }
         }}
       >
         <DialogContent sx={{ p: 0 }}>
           <Stack spacing={2.2}>
-            <Typography variant="h4" textAlign="center" fontWeight={700}>
+            <Typography variant="h5" textAlign="center" fontWeight={700}>
               Создание нового пользователя
             </Typography>
             <TextField
@@ -221,37 +211,18 @@ export const AdminPage = () => {
                 </MenuItem>
               ))}
             </TextField>
-            <TextField
-              label="Логин"
-              error={Boolean(errors.login)}
-              helperText={errors.login?.message}
-              {...register('login')}
-            />
-            <TextField
-              label="Пароль"
-              type="password"
-              error={Boolean(errors.password)}
-              helperText={errors.password?.message}
-              {...register('password')}
-            />
-            <TextField
-              label="Повторите пароль"
-              type="password"
-              error={Boolean(errors.confirmPassword)}
-              helperText={errors.confirmPassword?.message}
-              {...register('confirmPassword')}
-            />
+            <TextField label="Логин" error={Boolean(errors.login)} helperText={errors.login?.message} {...register('login')} />
+            <TextField label="Пароль" type="password" error={Boolean(errors.password)} helperText={errors.password?.message} {...register('password')} />
+            <TextField label="Повторите пароль" type="password" error={Boolean(errors.confirmPassword)} helperText={errors.confirmPassword?.message} {...register('confirmPassword')} />
             {errorMessage ? <Alert severity="error">{errorMessage}</Alert> : null}
             {successMessage ? <Alert severity="success">{successMessage}</Alert> : null}
             <Stack direction={{ xs: 'column', sm: 'row' }} spacing={1.2} justifyContent="center">
-              <Button variant="outlined" onClick={handleClose} sx={{ ...actionButtonSx, minWidth: 180 }}>
-                Отмена
-              </Button>
+              
               <Button
                 variant="contained"
                 onClick={handleSubmit(onSubmit)}
                 disabled={isSubmitting}
-                sx={{ borderRadius: '12px', textTransform: 'none', minWidth: 220, boxShadow: 'none' }}
+                sx={{ borderRadius: 999, textTransform: 'none', minWidth: 220, boxShadow: 'none' }}
               >
                 {isSubmitting ? 'Сохранение...' : 'Создать пользователя'}
               </Button>

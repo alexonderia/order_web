@@ -116,20 +116,11 @@ export const RequestDetailsPage = () => {
         [status]
     );
     const requestFileUrl = useMemo(() => {
-        if (!requestDetails) {
+        if (!requestDetails?.files?.length) {
             return null;
         }
-        return (
-            requestDetails.file?.download_url ??
-            getDownloadUrl(requestDetails.file?.id ?? requestDetails.id_file, requestDetails.file_path ?? null)
-        );
-    }, [
-        requestDetails?.file?.download_url,
-        requestDetails?.file?.id,
-        requestDetails?.id_file,
-        requestDetails?.file_path,
-        requestDetails
-    ]);
+        return requestDetails.files[0].download_url ?? getDownloadUrl(requestDetails.files[0].id, requestDetails.files[0].path);
+    }, [requestDetails]);
     const hasDeletedAlert = (requestDetails?.count_deleted_alert ?? 0) > 0;
 
     const todayDate = useMemo(() => {
@@ -177,7 +168,7 @@ export const RequestDetailsPage = () => {
             return;
         }
         try {
-            const data = await getRequests({ id_user_web: userLogin });
+            const data = await getRequests();
             const nextRequest = data.requests.find((item) => item.id === requestDetails.id);
             if (!nextRequest) {
                 return;

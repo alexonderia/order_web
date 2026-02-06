@@ -6,110 +6,133 @@ const navLinkStyles = {
   textDecoration: 'none'
 };
 
-type SidebarItem = {
+type NavItem = {
   label: string;
   to?: string;
   disabled?: boolean;
 };
+
+const superadminItems: NavItem[] = [
+  { label: 'Пользователи', to: '/admin' },
+  { label: 'Заявки', to: '/requests' },
+  { label: 'Офферы', disabled: true },
+  { label: 'Роли', disabled: true }
+];
+
 
 export const AppLayout = () => {
   const { session, logout } = useAuth();
   const location = useLocation();
   const navigate = useNavigate();
   const roleId = session?.roleId ?? null;
-  const sidebarItems: SidebarItem[] = roleId === 1
-    ? [
-      { label: 'Пользователи', to: '/admin' },
-      { label: 'Заявки', to: '/requests' },
-      { label: 'Офферы', disabled: true },
-      { label: 'Роли', disabled: true }
-    ]
-    : [{ label: 'Заявки', to: '/requests' }];
+  const isSuperadmin = roleId === 1;
   const isRequestsListPage = location.pathname === '/requests';
+  
+  const sidebarButtons = (
+    <Stack spacing={1.8}>
+      {superadminItems.map((item) => {
+        if (!item.to) {
+          return (
+            <Button key={item.label} variant="outlined" disabled={item.disabled} sx={{ height: 44 }}>
+              {item.label}
+            </Button>
+          );
+        }
+        return (
+          <NavLink key={item.to} to={item.to} style={navLinkStyles}>
+            {({ isActive }) => (
+              <Button
+                variant="outlined"
+                sx={(theme) => ({
+                  height: 44,
+                  width: '100%',
+                  backgroundColor: isActive ? theme.palette.primary.light : theme.palette.background.paper
+                })}
+              >
+                {item.label}
+              </Button>
+            )}
+          </NavLink>
+        );
+      })}
+    </Stack>
+  );
+
+  if (isSuperadmin) {
+    return (
+      <Box
+        sx={{
+          minHeight: '100vh',
+          backgroundColor: 'background.default',
+          display: 'grid',
+          gridTemplateColumns: { xs: '1fr', lg: '280px minmax(0, 1fr)' },
+          gap: { xs: 2, lg: 2.5 },
+          p: { xs: 1.5, md: 2 }
+        }}
+      >
+        <Stack
+          component="aside"
+          justifyContent="space-between"
+          sx={(theme) => ({
+            borderRadius: 3,
+            backgroundColor: theme.palette.background.paper,
+            p: 2,
+            minHeight: { xs: 'auto', lg: 'calc(100vh - 32px)' }
+          })}
+        >
+          {sidebarButtons}
+
+          <Button variant="outlined" onClick={logout} sx={{ height: 44 }}>
+            Выйти
+          </Button>
+        </Stack>
+        <Stack component="section" spacing={2} sx={{ minWidth: 0 }}>
+          {isRequestsListPage ? (
+            <Stack direction="row" justifyContent="flex-end">
+              <Button
+                variant="contained"
+                sx={{ px: 3, boxShadow: 'none', '&:hover': { boxShadow: 'none' } }}
+                onClick={() => navigate('/requests/create')}
+              >
+                Создать заявку
+              </Button>
+            </Stack>
+          ) : null}
+
+          <Box component="main">
+            <Outlet />
+          </Box>
+        </Stack>
+      </Box>
+    );
+  }
+
 
   return (
-    <Box
-      sx={{
-        minHeight: '100vh',
-        backgroundColor: 'background.default',
-        display: 'grid',
-        gridTemplateColumns: { xs: '1fr', lg: '260px minmax(0, 1fr)' },
-        gap: { xs: 2, lg: 3 },
-        p: { xs: 2, md: 3 }
-      }}
-    >
-      <Stack
-        component="aside"
-        justifyContent="space-between"
-        sx={(theme) => ({
-          border: `1px solid ${theme.palette.divider}`,
-          borderRadius: "12px",
-          backgroundColor: theme.palette.background.paper,
-          p: 2,
-          minHeight: { xs: 'auto', lg: 'calc(100vh - 48px)' }
-        })}
-      >
-        <Stack spacing={1.5}>
-          <Typography variant="h6" fontWeight={700} sx={{ px: 1 }}>
-            Order Web
-          </Typography>
-          {sidebarItems.map((item) => {
-            if (!item.to) {
-              return (
-                <Button
-                  key={item.label}
-                  variant="outlined"
-                  disabled={item.disabled}
-                  sx={{ justifyContent: 'flex-start', px: 2.5, height: 44 }}
-                >
-                  {item.label}
-                </Button>
-              );
-            }
-
-            return (
-              <NavLink key={item.to} to={item.to} style={navLinkStyles}>
-                {({ isActive }) => (
-                  <Button
-                    variant="outlined"
-                    sx={(theme) => ({
-                      justifyContent: 'flex-start',
-                      px: 2.5,
-                      height: 44,
-                      width: '100%',
-                      backgroundColor: isActive ? theme.palette.primary.light : theme.palette.background.paper
-                    })}
-                  >
-                    {item.label}
-                  </Button>
-                )}
-              </NavLink>
-            );
-          })}
-        </Stack>
-
-        <Button variant="outlined" onClick={logout} sx={{ justifyContent: 'flex-start', px: 2.5, height: 44 }}>
-          Выйти
-        </Button>
-      </Stack>
-
-      <Stack component="section" spacing={2} sx={{ minWidth: 0 }}>
+    <Box sx={{ minHeight: '100vh', backgroundColor: 'background.default', p: { xs: 1.5, md: 2.5 } }}>
+      <Stack component="header" direction="row" alignItems="center" justifyContent="space-between" sx={{ mb: 2 }}>
         {isRequestsListPage ? (
-          <Stack direction="row" justifyContent="flex-end">
-            <Button
-              variant="contained"
-              sx={{ px: 3, boxShadow: 'none', '&:hover': { boxShadow: 'none' } }}
-              onClick={() => navigate('/requests/create')}
-            >
-              Создать заявку
-            </Button>
-          </Stack>
-        ) : null}
-
-        <Box component="main">
-          <Outlet />
-        </Box>
+          <Button
+            variant="contained"
+            sx={{ px: 3, boxShadow: 'none', '&:hover': { boxShadow: 'none' } }}
+            onClick={() => navigate('/requests/create')}
+          >
+            Создать заявку
+          </Button>
+        ) : (
+          <Box />
+        )}
+        <Stack direction="row" spacing={3} alignItems="center">
+          <Typography variant="h6">профиль</Typography>
+          <Button variant="outlined" onClick={logout}>
+            Выйти
+          </Button>
+        </Stack>
       </Stack>
+
+      <Box component="main">
+        <Outlet />
+      </Box>
     </Box>
   );
 };

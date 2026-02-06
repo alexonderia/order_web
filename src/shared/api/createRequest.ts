@@ -1,22 +1,20 @@
 import { apiFetch } from './client';
 
 export type CreateRequestPayload = {
-  id_user_web: string;
   description?: string | null;
   deadline_at: string;
-  file: File;
+  files: File[];
 };
 
 export type CreateRequestResponse = {
-  status: 'ok';
-  request_id: number;
-  id_file: number;
+  data: {
+    request_id: number;
+    file_ids: number[];
+  };
 };
 
 export const createRequest = async (payload: CreateRequestPayload): Promise<CreateRequestResponse> => {
   const formData = new FormData();
-  formData.append('file', payload.file);
-  formData.append('id_user_web', payload.id_user_web);
   formData.append('deadline_at', payload.deadline_at);
 
   
@@ -24,7 +22,11 @@ export const createRequest = async (payload: CreateRequestPayload): Promise<Crea
     formData.append('description', payload.description);
   }
 
-  const response = await apiFetch('/api/web/requests/create', {
+  payload.files.forEach((file) => {
+    formData.append('files', file);
+  });
+
+  const response = await apiFetch('/api/v1/requests', {
     method: 'POST',
     body: formData
   });

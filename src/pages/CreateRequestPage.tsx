@@ -1,55 +1,61 @@
+import { zodResolver } from '@hookform/resolvers/zod';
 import { Box, Button, IconButton, Stack, TextField, Typography } from '@mui/material';
 import { alpha } from '@mui/material/styles';
 import { useMemo, useState } from 'react';
-import type { FormEvent } from 'react';
+import { Controller, useForm } from 'react-hook-form';
 import { useNavigate } from 'react-router-dom';
-import { useAuth } from '@app/providers/AuthProvider';
+import { z } from 'zod';
 import { createRequest } from '@shared/api/createRequest';
+
+const schema = z.object({
+  description: z.string().max(3000, 'Максимум 3000 символов').optional(),
+  deadlineAt: z.string().min(1, 'Укажите дату сбора КП'),
+  files: z.array(z.instanceof(File)).min(1, 'Добавьте хотя бы один файл')
+});
+
+type FormValues = z.infer<typeof schema>;
 
 export const CreateRequestPage = () => {
     const navigate = useNavigate();
-    const { session } = useAuth();
     const todayDate = useMemo(() => {
         const now = new Date();
         const offsetMs = now.getTimezoneOffset() * 60000;
         return new Date(now.getTime() - offsetMs).toISOString().split('T')[0];
     }, []);
-    const [description, setDescription] = useState('');
-    const [deadlineAt, setDeadlineAt] = useState(todayDate);
-    const [fileName, setFileName] = useState('');
-    const [file, setFile] = useState<File | null>(null);
-    const [isSubmitting, setIsSubmitting] = useState(false);
+    const [isSubmittingRequest, setIsSubmittingRequest] = useState(false);
     const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
-    const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
-        event.preventDefault();
-        if (!session?.login) {
-            setErrorMessage('Не удалось определить пользователя');
-            return;
+    const {
+        control,
+        register,
+        handleSubmit,
+        watch,
+        formState: { errors }
+    } = useForm<FormValues>({
+        resolver: zodResolver(schema),
+        defaultValues: {
+            description: '',
+            deadlineAt: todayDate,
+            files: []
         }
-        if (!file) {
-            setErrorMessage('Файл обязателен для отправки заявки');
-            return;
-        }
-        if (!deadlineAt) {
-            setErrorMessage('Укажите дату сбора КП');
-            return;
-        }
+    });
 
-        setIsSubmitting(true);
+    const files = watch('files');
+
+    const onSubmit = async (values: FormValues) => {
+        setIsSubmittingRequest(true);
         setErrorMessage(null);
         try {
             await createRequest({
-                id_user_web: session.login,
-                description: description.trim() || null,
-                deadline_at: `${deadlineAt}T00:00:00`,
-                file
+                description: values.description?.trim() || null,
+                deadline_at: `${values.deadlineAt}T00:00:00`,
+                files: values.files
             });
             navigate('/requests');
         } catch (error) {
             setErrorMessage(error instanceof Error ? error.message : 'Ошибка создания заявки');
         } finally {
-            setIsSubmitting(false);
+            setIsSubmittingRequest(false);
         }
     };
 
@@ -66,7 +72,7 @@ export const CreateRequestPage = () => {
         >
             <Box
                 component="form"
-                onSubmit={handleSubmit}
+                onSubmit={handleSubmit(onSubmit)}
                 sx={(theme) => ({
                     width: { xs: '100%', sm: 560 },
                     backgroundColor: theme.palette.background.paper,
@@ -80,23 +86,21 @@ export const CreateRequestPage = () => {
                     <Typography variant="h5" fontWeight={600}>
                         Новая заявка
                     </Typography>
-                    <IconButton
-                        aria-label="Закрыть"
-                        onClick={() => navigate('/requests')}
-                        sx={{ color: 'text.primary' }}
-                    >
+                    <IconButton aria-label="Закрыть" onClick={() => navigate('/requests')} sx={{ color: 'text.primary' }}>
                         <Typography component="span" fontSize={28} lineHeight={1}>
                             ×
                         </Typography>
                     </IconButton>
                 </Stack>
+
                 <TextField
                     placeholder="Описание заявки"
                     multiline
                     minRows={5}
                     fullWidth
-                    value={description}
-                    onChange={(event) => setDescription(event.target.value)}
+                    error={Boolean(errors.description)}
+                    helperText={errors.description?.message}
+                    {...register('description')}
                     sx={{
                         backgroundColor: 'background.paper',
                         borderRadius: 3,
@@ -105,15 +109,17 @@ export const CreateRequestPage = () => {
                         }
                     }}
                 />
+
                 <Stack direction={{ xs: 'column', sm: 'row' }} spacing={2} mt={3} alignItems="center">
                     <Typography variant="subtitle1" fontWeight={500}>
                         Сбор КП до
                     </Typography>
                     <TextField
                         type="date"
-                        value={deadlineAt}
-                        onChange={(event) => setDeadlineAt(event.target.value)}
+                        error={Boolean(errors.deadlineAt)}
+                        helperText={errors.deadlineAt?.message}
                         inputProps={{ min: todayDate }}
+                        {...register('deadlineAt')}
                         sx={(theme) => ({
                             backgroundColor: alpha(theme.palette.primary.main, 0.08),
                             borderRadius: 999,
@@ -124,7 +130,8 @@ export const CreateRequestPage = () => {
                         })}
                     />
                 </Stack>
-                <Stack direction={{ xs: 'column', sm: 'row' }} spacing={2} mt={2} alignItems="center">
+
+                <Stack direction={{ xs: 'column', sm: 'row' }} spacing={2} mt={2} alignItems="flex-start">
                     <Button
                         variant="outlined"
                         component="label"
@@ -139,31 +146,31 @@ export const CreateRequestPage = () => {
                         <Box component="span" sx={{ marginRight: 1 }}>
                             🔗
                         </Box>
-                        Прикрепить файл
-                        <input
-                            type="file"
-                            hidden
-                            onChange={(event) => {
-                                const file = event.target.files?.[0];
-                                setFileName(file ? file.name : '');
-                                setFile(file ?? null);
-                            }}
+                        Прикрепить файлы
+                        <Controller
+                            control={control}
+                            name="files"
+                            render={({ field: { onChange } }) => (
+                                <input
+                                    type="file"
+                                    hidden
+                                    multiple
+                                    onChange={(event) => onChange(Array.from(event.target.files ?? []))}
+                                />
+                            )}
                         />
                     </Button>
-                    <Typography variant="body2" color="#3a3a3a">
-                        {fileName || 'Файл не выбран'}
-                    </Typography>
+                    <Stack spacing={0.5}>
+                        {files.length > 0 ? files.map((file) => <Typography key={file.name}>{file.name}</Typography>) : <Typography variant="body2">Файлы не выбраны</Typography>}
+                        {errors.files ? <Typography variant="caption" color="error">{errors.files.message}</Typography> : null}
+                    </Stack>
                 </Stack>
-                {!file ? (
-                    <Typography mt={1} variant="caption" color="text.secondary">
-                        Файл обязателен для отправки заявки.
-                    </Typography>
-                ) : null}
+
                 <Button
                     variant="contained"
                     fullWidth
                     type="submit"
-                    disabled={isSubmitting || !file}
+                    disabled={isSubmittingRequest}
                     sx={(theme) => ({
                         marginTop: 3,
                         borderRadius: 999,
@@ -180,7 +187,7 @@ export const CreateRequestPage = () => {
                         }
                     })}
                 >
-                    {isSubmitting ? 'Создание...' : 'Создать заявку'}
+                    {isSubmittingRequest ? 'Создание...' : 'Создать заявку'}
                 </Button>
                 {errorMessage ? (
                     <Typography mt={2} color="error" textAlign="center">
