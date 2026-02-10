@@ -4,6 +4,7 @@ import { AuthPage } from '@pages/AuthPage';
 import { CreateRequestPage } from '@pages/CreateRequestPage';
 import { RequestDetailsPage } from '@pages/RequestDetailsPage';
 import { RequestsPage } from '@pages/RequestsPage';
+import { TgRegisterPage } from '@pages/TgRegisterPage';
 import { AppLayout } from '@app/layouts/AppLayout';
 import { ProtectedRoute } from '@app/routes/ProtectedRoute';
 import { RoleRoute } from '@app/routes/RoleRoute';
@@ -16,6 +17,7 @@ export const App = () => {
   return (
     <Routes>
       <Route path="/login" element={<AuthPage />} />
+      <Route path="/auth/tg/register" element={<TgRegisterPage />} />
       <Route element={<ProtectedRoute />}>
         <Route element={<AppLayout />}>
           <Route path="/" element={<Navigate to={defaultPath} replace />} />

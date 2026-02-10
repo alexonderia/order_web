@@ -1,8 +1,7 @@
 services:
   web:
     build: .
-    ports:
-      - "3000:80"
+    container_name: web
     networks:
       - project_net
 
