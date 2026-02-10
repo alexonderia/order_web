@@ -1,7 +1,7 @@
 import type { AuthLink } from '@shared/api/loginWebUser';
 
 type SessionWithAvailableAction = {
-  availableAction?: AuthLink | null;
+  availableActions?: AuthLink[];
 } | null | undefined;
 
 const normalizeMethod = (method: string) => method.trim().toUpperCase();
@@ -25,13 +25,14 @@ export const hasAvailableAction = (
   href: string,
   method: string
 ): boolean => {
-  const availableAction = session?.availableAction;
-  if (!availableAction) {
+  const availableActions = session?.availableActions ?? [];
+  if (!availableActions.length) {
     return false;
   }
 
-  return (
-    normalizeHref(availableAction.href) === normalizeHref(href) &&
-    normalizeMethod(availableAction.method) === normalizeMethod(method)
+  return availableActions.some(
+    (availableAction) =>
+      normalizeHref(availableAction.href) === normalizeHref(href) &&
+      normalizeMethod(availableAction.method) === normalizeMethod(method)
   );
 };

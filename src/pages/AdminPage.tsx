@@ -61,6 +61,27 @@ const actionButtonSx = {
   minWidth: 180
 };
 
+const normalizeActionHref = (href: string) => {
+  const normalizedHref = href.trim();
+  if (!normalizedHref) return '';
+
+  const url = normalizedHref.startsWith('http')
+    ? new URL(normalizedHref)
+    : new URL(normalizedHref, 'http://local');
+
+  return url.pathname.replace(/\/{2,}/g, '/').replace(/\/$/, '');
+};
+
+const canPatchUserStatus = (href: string, method: string) => {
+  const normalizedMethod = method.trim().toUpperCase();
+  if (normalizedMethod !== 'PATCH') return false;
+
+  const pathname = normalizeActionHref(href);
+  const statusPattern = /^\/api\/v1\/users\/(\{user_id\}|[^/]+)\/status$/;
+
+  return statusPattern.test(pathname);
+};
+
 export const AdminPage = () => {
   const { session } = useAuth();
   const [isDialogOpen, setIsDialogOpen] = useState(false);
@@ -70,6 +91,7 @@ export const AdminPage = () => {
   const [users, setUsers] = useState<UserListItem[]>([]);
   const [isLoadingUsers, setIsLoadingUsers] = useState(false);
   const [usersError, setUsersError] = useState<string | null>(null);
+  const [canUpdateStatus, setCanUpdateStatus] = useState(false);
 
   const roleOptions = useMemo(
     () => [
@@ -104,10 +126,16 @@ export const AdminPage = () => {
     setIsLoadingUsers(true);
     setUsersError(null);
     try {
-      const nextUsers = await getUsers(roleByTab[activeTab]);
-      setUsers(nextUsers);
+      const response = await getUsers(roleByTab[activeTab]);
+      setUsers(response.items);
+      setCanUpdateStatus(
+        response.availableActions.some(
+          (action) => canPatchUserStatus(action.href, action.method)
+        )
+      );
     } catch (error) {
       setUsersError(error instanceof Error ? error.message : 'Не удалось загрузить список пользователей');
+      setCanUpdateStatus(false);
     } finally {
       setIsLoadingUsers(false);
     }
@@ -178,6 +206,9 @@ export const AdminPage = () => {
         isLoading={isLoadingUsers}
         emptyMessage="Список пользователей пока пуст."
         getRoleLabel={getRoleLabel}
+        isContractorsTab={activeTab === 'contractors'}
+        canUpdateStatus={canUpdateStatus}
+        onStatusUpdated={loadUsers}
       />
 
       <Dialog

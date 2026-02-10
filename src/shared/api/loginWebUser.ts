@@ -18,8 +18,8 @@ export type LoginWebUserResponse = {
   };
   _links?: {
     self: AuthLink;
-    available_action?: AuthLink;
-    availableAction?: AuthLink;
+    available_actions?: AuthLink[];
+    availableActions?: AuthLink[];
   };
 };
 
