@@ -2,29 +2,30 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import {
     Box,
     Button,
+    Chip,
     MenuItem,
     Select,
     Stack,
     TextField,
     Typography
 } from '@mui/material';
-import { updateRequest } from '@shared/api/updateRequest';
-import { getOffers } from '@shared/api/getOffers';
-import { updateOfferStatus } from '@shared/api/updateOfferStatus';
-import { notifyOfferComment } from '@shared/api/notifyOfferComment';
-import { getOfferComments } from '@shared/api/getOfferComments';
-import type { RequestWithOfferStats } from '@shared/api/getRequests';
-import { getRequests } from '@shared/api/getRequests';
-import { getDownloadUrl } from '@shared/api/fileDownload';
-import { markDeletedAlertViewed } from '@shared/api/markDeletedAlertViewed';
+import { useLocation, useNavigate, useParams } from 'react-router-dom';
+import { useAuth } from '@app/providers/AuthProvider';
 import { OfferChatDrawer } from '@features/requests/components/OfferChatDrawer';
 import type { OfferChatMessage } from '@features/requests/components/OfferChatDrawer';
 import { OffersTable } from '@features/requests/components/OffersTable';
 import type { OfferDecisionStatus, OfferStatusOption } from '@features/requests/components/OffersTable';
-import type { OfferDetails } from '@shared/api/getOffers';
+import type { RequestWithOfferStats } from '@shared/api/getRequests';
+import { getOfferComments } from '@shared/api/getOfferComments';
+import { getRequestDetails } from '@shared/api/getRequestDetails';
+import type { RequestDetails, RequestDetailsFile, RequestDetailsOffer } from '@shared/api/getRequestDetails';
+import { markDeletedAlertViewed } from '@shared/api/markDeletedAlertViewed';
+import { notifyOfferComment } from '@shared/api/notifyOfferComment';
+import { updateOfferStatus } from '@shared/api/updateOfferStatus';
+import { updateRequestDetails } from '@shared/api/updateRequestDetails';
+import { downloadFile } from '@shared/api/fileDownload';
+import { hasAvailableAction } from '@shared/auth/availableActions';
 import { DataTable } from '@shared/components/DataTable';
-import { useLocation, useNavigate } from 'react-router-dom';
-import { useAuth } from '@app/providers/AuthProvider';
 
 type RequestStatus = 'open' | 'review' | 'closed' | 'cancelled';
 
@@ -40,6 +41,12 @@ const offerStatusOptions: OfferStatusOption[] = [
     { value: 'accepted', label: 'Принято' },
     { value: 'rejected', label: 'Отказано' }
 ];
+
+const detailsColumns = [
+    { key: 'label', label: 'Параметр' },
+    { key: 'value', label: 'Значение' }
+];
+
 
 const formatDate = (value: string | null) => {
     if (!value) {
@@ -60,11 +67,9 @@ const formatDate = (value: string | null) => {
 
 const toDateInputValue = (value: string | null) => {
     if (!value) return '';
-    // берём только дату до 'T'
     const [datePart] = value.split('T');
     return datePart ?? '';
 };
-
 
 const normalizeOfferStatus = (value: string | null): OfferDecisionStatus => {
     if (value === 'accepted' || value === 'rejected') {
@@ -74,34 +79,32 @@ const normalizeOfferStatus = (value: string | null): OfferDecisionStatus => {
     return '';
 };
 
-const detailsColumns = [
-    { key: 'label', label: 'Параметр' },
-    { key: 'value', label: 'Значение' }
-];
+const getFileKey = (file: File) => `${file.name}-${file.size}-${file.lastModified}`;
 
 export const RequestDetailsPage = () => {
     const navigate = useNavigate();
     const location = useLocation();
+    const { id } = useParams<{ id: string }>();
     const { session } = useAuth();
-    const request = (location.state as { request?: RequestWithOfferStats } | null)?.request;
+    const requestFromLocation = (location.state as { request?: RequestWithOfferStats } | null)?.request;
+    const requestId = Number(id ?? requestFromLocation?.id ?? 0);
     const userLogin = session?.login ?? '';
 
-    const [requestDetails, setRequestDetails] = useState<RequestWithOfferStats | null>(request ?? null);
-    const initialStatus = (statusOptions.find((o) => o.value === request?.status)?.value ?? 'open') as RequestStatus;
+    const [requestDetails, setRequestDetails] = useState<RequestDetails | null>(null);
+    const [status, setStatus] = useState<RequestStatus>('open');
+    const [baselineStatus, setBaselineStatus] = useState<RequestStatus>('open');
+    const [deadline, setDeadline] = useState<string>('');
+    const [baselineDeadline, setBaselineDeadline] = useState<string>('');
+    const [existingFiles, setExistingFiles] = useState<RequestDetailsFile[]>([]);
+    const [deletedFileIds, setDeletedFileIds] = useState<number[]>([]);
+    const [newFiles, setNewFiles] = useState<File[]>([]);
 
-    const [status, setStatus] = useState<RequestStatus>(initialStatus);
-    const [baselineStatus, setBaselineStatus] = useState<RequestStatus>(initialStatus);
-    const isRequestStatus = (value: unknown): value is RequestStatus =>
-        value === 'open' || value === 'review' || value === 'closed' || value === 'cancelled';
-
-    const [deadline, setDeadline] = useState<string>(toDateInputValue(request?.deadline_at ?? null));
-    const [baselineDeadline, setBaselineDeadline] = useState<string>(toDateInputValue(request?.deadline_at ?? null));
     const [isSaving, setIsSaving] = useState(false);
     const [errorMessage, setErrorMessage] = useState<string | null>(null);
     const [successMessage, setSuccessMessage] = useState<string | null>(null);
     const [isClearingDeletedAlert, setIsClearingDeletedAlert] = useState(false);
 
-    const [offers, setOffers] = useState<OfferDetails[]>([]);
+    const [offers, setOffers] = useState<RequestDetailsOffer[]>([]);
     const [offersStatusMap, setOffersStatusMap] = useState<Record<number, OfferDecisionStatus>>({});
     const [offersLoading, setOffersLoading] = useState(false);
     const [offersError, setOffersError] = useState<string | null>(null);
@@ -115,13 +118,17 @@ export const RequestDetailsPage = () => {
         () => statusOptions.find((option) => option.value === status) ?? statusOptions[0],
         [status]
     );
-    const requestFileUrl = useMemo(() => {
-        if (!requestDetails?.files?.length) {
-            return null;
-        }
-        return requestDetails.files[0].download_url ?? getDownloadUrl(requestDetails.files[0].id, requestDetails.files[0].path);
-    }, [requestDetails]);
     const hasDeletedAlert = (requestDetails?.count_deleted_alert ?? 0) > 0;
+    const hasFileChanges = deletedFileIds.length > 0 || newFiles.length > 0;
+    const canEditRequest = useMemo(
+        () =>
+            hasAvailableAction(
+                { availableActions: requestDetails?.availableActions ?? [] },
+                `/api/v1/requests/${requestId}`,
+                'PATCH'
+            ),
+        [requestDetails?.availableActions, requestId]
+    );
 
     const todayDate = useMemo(() => {
         const now = new Date();
@@ -129,85 +136,73 @@ export const RequestDetailsPage = () => {
         return new Date(now.getTime() - offsetMs).toISOString().split('T')[0];
     }, []);
 
-    useEffect(() => {
-        if (request) {
-            setRequestDetails(request);
-        }
-    }, [request]);
+    const syncRequestState = useCallback((nextRequest: RequestDetails, forceBaseline: boolean) => {
+        setRequestDetails(nextRequest);
+        setOffers(nextRequest.offers ?? []);
+        setOffersStatusMap(
+            (nextRequest.offers ?? []).reduce<Record<number, OfferDecisionStatus>>((acc, offer) => {
+                acc[offer.offer_id] = normalizeOfferStatus(offer.status);
+                return acc;
+            }, {})
+        );
 
-    const fetchOffers = useCallback(
+        if (forceBaseline) {
+            const nextStatus = (statusOptions.find((o) => o.value === nextRequest.status)?.value ?? 'open') as RequestStatus;
+            const nextDeadline = toDateInputValue(nextRequest.deadline_at);
+            setStatus(nextStatus);
+            setBaselineStatus(nextStatus);
+            setDeadline(nextDeadline);
+            setBaselineDeadline(nextDeadline);
+            setExistingFiles(nextRequest.files ?? []);
+            setDeletedFileIds([]);
+            setNewFiles([]);
+        }
+    }, []);
+
+    const fetchRequest = useCallback(
         async (showLoading: boolean) => {
-            if (!requestDetails || !userLogin) {
+            if (!Number.isFinite(requestId) || requestId <= 0) {
                 return;
             }
             if (showLoading) {
                 setOffersLoading(true);
             }
-            setOffersError(null);
             try {
-                const data = await getOffers({ requestId: requestDetails.id, userLogin });
-                setOffers(data.offers ?? []);
-                const nextStatusMap = data.offers.reduce<Record<number, OfferDecisionStatus>>((acc, offer) => {
-                    acc[offer.offer_id] = normalizeOfferStatus(offer.status);
-                    return acc;
-                }, {});
-                setOffersStatusMap(nextStatusMap);
+                const nextRequest = await getRequestDetails(requestId);
+                const hasLocalChanges =
+                    status !== baselineStatus || deadline !== baselineDeadline || hasFileChanges;
+                syncRequestState(nextRequest, !hasLocalChanges);
+                setOffersError(null);
             } catch (error) {
-                setOffersError(error instanceof Error ? error.message : 'Не удалось загрузить офферы');
+                setOffersError(error instanceof Error ? error.message : 'Не удалось загрузить заявку');
             } finally {
                 if (showLoading) {
                     setOffersLoading(false);
                 }
             }
         },
-        [requestDetails, userLogin]
+        [baselineDeadline, baselineStatus, deadline, hasFileChanges, requestId, status, syncRequestState]
     );
 
-    const fetchRequestDetails = useCallback(async () => {
-        if (!requestDetails || !userLogin) {
-            return;
-        }
-        try {
-            const data = await getRequests();
-            const nextRequest = data.requests.find((item) => item.id === requestDetails.id);
-            if (!nextRequest) {
-                return;
-            }
-            setRequestDetails(nextRequest);
-            const hasLocalChanges = status !== baselineStatus || deadline !== baselineDeadline;
-            if (!hasLocalChanges) {
-                const nextStatus =
-                    (statusOptions.find((o) => o.value === nextRequest.status)?.value ?? 'open') as RequestStatus;
-                const nextDeadline = toDateInputValue(nextRequest.deadline_at);
-                setStatus(nextStatus);
-                setBaselineStatus(nextStatus);
-                setDeadline(nextDeadline);
-                setBaselineDeadline(nextDeadline);
-            }
-        } catch (error) {
-            setErrorMessage(error instanceof Error ? error.message : 'Не удалось обновить заявку');
-        }
-    }, [baselineDeadline, baselineStatus, deadline, requestDetails, status, userLogin]);
 
     useEffect(() => {
-        void fetchOffers(true);
-        void fetchRequestDetails();
+        void fetchRequest(true);
         const intervalId = window.setInterval(() => {
-            void fetchOffers(false);
-            void fetchRequestDetails();
+            void fetchRequest(false);
         }, pollIntervalMs);
         return () => window.clearInterval(intervalId);
-    }, [fetchOffers, fetchRequestDetails, pollIntervalMs]);
-    
+    }, [fetchRequest]);
+
     const handleSave = async () => {
         const currentRequest = requestDetails;
-        if (!currentRequest) {
+        if (!currentRequest || !canEditRequest) {
             return;
         }
+
         const statusChanged = status !== baselineStatus;
         const deadlineChanged = deadline !== baselineDeadline;
 
-        if (!statusChanged && !deadlineChanged) {
+        if (!statusChanged && !deadlineChanged && !hasFileChanges) {
             setErrorMessage('Нет изменений для сохранения');
             setSuccessMessage(null);
             return;
@@ -236,35 +231,15 @@ export const RequestDetailsPage = () => {
         setSuccessMessage(null);
 
         try {
-            const payload = {
-                id_user_web: userLogin,
-                request_id: currentRequest.id,
-                status: statusChanged ? status : null,
-                deadline_at: deadlineChanged ? `${deadline}T23:59:59` : null
-            };
-
-            const response = await updateRequest(payload);
-            const nextStatus = response.request?.status;
-            if (isRequestStatus(nextStatus)) {
-                setBaselineStatus(nextStatus);
-                setStatus(nextStatus);
-            }
-            if (response.request?.deadline_at) {
-                const nextDeadline = toDateInputValue(response.request.deadline_at);
-                setBaselineDeadline(nextDeadline);
-                setDeadline(nextDeadline);
-            }
-            setRequestDetails((prev) => {
-                if (!prev) {
-                    return prev;
-                }
-                return {
-                    ...prev,
-                    status: response.request?.status ?? prev.status,
-                    deadline_at: response.request?.deadline_at ?? prev.deadline_at,
-                    updated_at: response.request?.updated_at ?? prev.updated_at
-                };
+            await updateRequestDetails({
+                requestId: currentRequest.id,
+                status: statusChanged ? status : undefined,
+                deadline_at: deadlineChanged ? `${deadline}T23:59:59` : undefined,
+                delete_file_ids: deletedFileIds,
+                files: newFiles
             });
+            const refreshed = await getRequestDetails(currentRequest.id);
+            syncRequestState(refreshed, true);
             setSuccessMessage('Изменения сохранены');
         } catch (error) {
             setErrorMessage(error instanceof Error ? error.message : 'Не удалось сохранить изменения');
@@ -413,24 +388,34 @@ export const RequestDetailsPage = () => {
         }
     };
 
-    if (!requestDetails || !userLogin) {
-        return (
-            <Box>
-                <Typography variant="h6" mb={2}>
-                    Нет данных для отображения заявки.
-                </Typography>
-                <Button variant="outlined" onClick={() => navigate('/requests')}>
-                    Вернуться к заявкам
-                </Button>
-            </Box>
-        );
-    }
+    const handleDownload = async (downloadUrl: string, fileName: string) => {
+        try {
+            await downloadFile(downloadUrl, fileName);
+        } catch (error) {
+            setErrorMessage(error instanceof Error ? error.message : 'Не удалось скачать файл');
+        }
+    };
+
+    const handleRemoveExistingFile = (fileId: number) => {
+        setExistingFiles((prev) => prev.filter((file) => file.id !== fileId));
+        setDeletedFileIds((prev) => (prev.includes(fileId) ? prev : [...prev, fileId]));
+    };
+
+    const handleAddFiles = (nextFiles: File[]) => {
+        setNewFiles((prev) => {
+            const fileMap = new Map<string, File>();
+            [...prev, ...nextFiles].forEach((file) => {
+                fileMap.set(getFileKey(file), file);
+            });
+            return Array.from(fileMap.values());
+        });
+    };
 
     const detailsRows = [
-        { id: 'creator', label: 'Создатель заявки', value: requestDetails.id_user_web },
-        { id: 'created', label: 'Создана', value: formatDate(requestDetails.created_at) },
-        { id: 'closed', label: 'Закрыта', value: formatDate(requestDetails.closed_at) },
-        { id: 'offer', label: 'Номер КП', value: requestDetails.id_offer ?? '-' },
+        { id: 'creator', label: 'Создатель заявки', value: requestDetails?.id_user_web ?? '-' },
+        { id: 'created', label: 'Создана', value: formatDate(requestDetails?.created_at ?? null) },
+        { id: 'closed', label: 'Закрыта', value: formatDate(requestDetails?.closed_at ?? null) },
+        { id: 'offer', label: 'Номер КП', value: requestDetails?.id_offer ?? '-' },
         {
             id: 'deadline',
             label: 'Дедлайн сбора КП',
@@ -441,11 +426,12 @@ export const RequestDetailsPage = () => {
                     value={deadline}
                     onChange={(event) => setDeadline(event.target.value)}
                     inputProps={{ min: todayDate }}
+                    disabled={!canEditRequest}
                     sx={{ minWidth: 150 }}
                 />
             )
         },
-        { id: 'updated', label: 'Последнее изменение', value: formatDate(requestDetails.updated_at) }
+        { id: 'updated', label: 'Последнее изменение', value: formatDate(requestDetails?.updated_at ?? null) }
     ];
 
     if (!requestDetails || !userLogin) {
@@ -463,28 +449,17 @@ export const RequestDetailsPage = () => {
 
     return (
         <Box>
-            <Stack direction="row" justifyContent="space-between" alignItems="center" mb={3}>
-                <Button
-                    variant="outlined"
-                    sx={{ paddingX: 4, borderColor: 'primary.main', color: 'primary.main' }}
-                    onClick={() => navigate('/requests')}
-                >
-                    К списку заявок
-                </Button>
-                <Box />
-            </Stack>
-
             <Stack
-                direction={{ xs: 'column', md: 'row' }}
+                direction="row"
                 spacing={2}
-                alignItems={{ xs: 'flex-start', md: 'center' }}
-                mb={3}
+                alignItems="center"
+                flexWrap="wrap"
+                sx={{ mb: 3 }}
             >
-                <Typography variant="h6" fontWeight={600}>
-
+                <Typography variant="h6" fontWeight={600} sx={{ whiteSpace: 'nowrap' }}>
                     Номер заявки: {requestDetails.id}
                 </Typography>
-                <Stack direction="row" alignItems="center" spacing={1}>
+                <Stack direction="row" alignItems="center" spacing={1} sx={{ flexWrap: 'nowrap' }}>
                     <Box
                         sx={{
                             width: 22,
@@ -497,6 +472,7 @@ export const RequestDetailsPage = () => {
                         size="small"
                         value={status}
                         onChange={(event) => setStatus(event.target.value as RequestStatus)}
+                        disabled={!canEditRequest}
                         sx={{
                             minWidth: 200,
                             borderRadius: 999,
@@ -512,9 +488,9 @@ export const RequestDetailsPage = () => {
                 </Stack>
                 <Button
                     variant="contained"
-                    sx={{ paddingX: 4, boxShadow: 'none', '&:hover': { boxShadow: 'none' } }}
+                    sx={{ paddingX: 4, boxShadow: 'none', whiteSpace: 'nowrap', '&:hover': { boxShadow: 'none' } }}
                     onClick={() => void handleSave()}
-                    disabled={isSaving}
+                    disabled={isSaving || !canEditRequest}
                 >
                     {isSaving ? 'Сохранение...' : 'Сохранить изменения'}
                 </Button>
@@ -547,46 +523,60 @@ export const RequestDetailsPage = () => {
                         placeholder="Описание заявки"
                         multiline
                         minRows={6}
-                        InputProps={{
-                            readOnly: true
-                        }}
-                        sx={{
-                            borderRadius: 3
-                        }}
+                        InputProps={{ readOnly: true }}
+                        sx={{ borderRadius: 3 }}
                     />
-                    {requestFileUrl ? (
-                        <Button
-                            variant="outlined"
-                            sx={(theme) => ({
-                                paddingX: 3,
-                                borderColor: theme.palette.primary.main,
-                                color: theme.palette.primary.main,
-                                backgroundColor: theme.palette.background.paper,
-                                width: 'fit-content'
-                            })}
-                            component="a"
-                            href={requestFileUrl}
-                            target="_blank"
-                            rel="noreferrer"
-                        >
-                            Скачать файл заявки
-                        </Button>
-                    ) : (
-                        <Button
-                            variant="outlined"
-                            sx={(theme) => ({
-                                paddingX: 3,
-                                borderColor: theme.palette.primary.main,
-                                color: theme.palette.primary.main,
-                                backgroundColor: theme.palette.background.paper,
-                                width: 'fit-content'
-                            })}
-                            disabled
-                        >
-                            Скачать файл заявки
-                        </Button>
+                    <Stack spacing={1}>
+                        <Typography variant="subtitle2" color="text.secondary">
+                            Файлы заявки
+                        </Typography>
+                        {existingFiles.length > 0 ? (
+                            <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1 }}>
+                                {existingFiles.map((file) => (
+                                    <Chip
+                                        key={file.id}
+                                        label={file.name}
+                                        variant="outlined"
+                                        onClick={() => void handleDownload(file.download_url, file.name)}
+                                        onDelete={canEditRequest ? () => handleRemoveExistingFile(file.id) : undefined}
+                                    />
+                                ))}
+                            </Box>
+                        ) : (
+                            <Typography variant="body2">Файлы не прикреплены</Typography>
+                        )}
 
-                    )}
+                        {canEditRequest && (
+                            <>
+                                <Button variant="outlined" component="label" sx={{ width: 'fit-content' }}>
+                                    Прикрепить новые файлы
+                                    <input
+                                        hidden
+                                        multiple
+                                        type="file"
+                                        onChange={(event) => {
+                                            handleAddFiles(Array.from(event.target.files ?? []));
+                                            event.target.value = '';
+                                        }}
+                                    />
+                                </Button>
+                                {newFiles.length > 0 && (
+                                    <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1 }}>
+                                        {newFiles.map((file) => (
+                                            <Chip
+                                                key={getFileKey(file)}
+                                                label={file.name}
+                                                variant="outlined"
+                                                onDelete={() =>
+                                                    setNewFiles((prev) => prev.filter((item) => getFileKey(item) !== getFileKey(file)))
+                                                }
+                                            />
+                                        ))}
+                                    </Box>
+                                )}
+                            </>
+                        )}
+                    </Stack>
                     {hasDeletedAlert && (
                         <Button
                             variant="contained"
@@ -596,12 +586,7 @@ export const RequestDetailsPage = () => {
                                 backgroundColor: theme.palette.error.main,
                                 color: theme.palette.error.contrastText,
                                 boxShadow: 'none',
-
-                                '&:hover': {
-                                    backgroundColor: theme.palette.error.dark,
-                                    boxShadow: 'none'
-                                },
-
+                                '&:hover': { backgroundColor: theme.palette.error.dark, boxShadow: 'none' },
                                 '&:disabled': {
                                     backgroundColor: theme.palette.error.light,
                                     color: theme.palette.error.contrastText
@@ -641,6 +626,7 @@ export const RequestDetailsPage = () => {
                     statusOptions={offerStatusOptions}
                     onStatusChange={(offerId, value) => void handleOfferStatusChange(offerId, value)}
                     onOpenChat={(offerId) => void handleOpenChat(offerId)}
+                    onDownloadFile={(downloadUrl, fileName) => void handleDownload(downloadUrl, fileName)}
                 />
             </Box>
             <OfferChatDrawer

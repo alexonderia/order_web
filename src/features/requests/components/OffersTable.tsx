@@ -1,8 +1,7 @@
 import type { ReactNode } from 'react';
 import { Box, Button, MenuItem, Select, Stack, SvgIcon, Typography } from '@mui/material';
 import { useTheme } from '@mui/material/styles';
-import type { OfferDetails } from '@shared/api/getOffers';
-import { getDownloadUrl } from '@shared/api/fileDownload';
+import type { RequestDetailsOffer } from '@shared/api/getRequestDetails';
 import { DataTable } from '@shared/components/DataTable';
 
 export type OfferDecisionStatus = 'accepted' | 'rejected' | '';
@@ -13,13 +12,14 @@ export type OfferStatusOption = {
 };
 
 type OffersTableProps = {
-    offers: OfferDetails[];
+    offers: RequestDetailsOffer[];
     statusMap: Record<number, OfferDecisionStatus>;
     isLoading?: boolean;
     errorMessage?: string | null;
     statusOptions: OfferStatusOption[];
     onStatusChange: (offerId: number, value: OfferDecisionStatus) => void;
     onOpenChat: (offerId: number) => void;
+    onDownloadFile: (downloadUrl: string, fileName: string) => void;
 };
 
 type NotificationStyle = {
@@ -34,7 +34,7 @@ const columns = [
     { key: 'contacts', label: 'Контакты', minWidth: 200, fraction: 1.6 },
     { key: 'createdAt', label: 'Дата создания', minWidth: 120, fraction: 1.1 },
     { key: 'updatedAt', label: 'Дата изменения', minWidth: 120, fraction: 1.1 },
-    { key: 'file', label: 'КП', minWidth: 100, fraction: 1 },
+    { key: 'file', label: 'КП', minWidth: 150, fraction: 1.1 },
     { key: 'statusSelect', label: 'Статус', minWidth: 140, fraction: 1 },
     { key: 'chat', label: 'Чат', minWidth: 150, fraction: 1 }
 ];
@@ -57,7 +57,7 @@ const formatDate = (value: string | null) => {
     }).format(date);
 };
 
-const getContactInfo = (offer: OfferDetails) => {
+const getContactInfo = (offer: RequestDetailsOffer) => {
     const parts = [
         offer.tg_username ? `Telegram: ${offer.tg_username}` : null,
         offer.phone ? `Телефон: ${offer.phone}` : null,
@@ -124,7 +124,7 @@ const getNotificationStyle = (status: string | null, palette: { divider: string;
     };
 };
 
-const hasNewChatAnswer = (offer: OfferDetails) =>
+const hasNewChatAnswer = (offer: RequestDetailsOffer) =>
     Boolean(offer.offer_chat_stats?.status_web && !offer.offer_chat_stats?.status_tg);
 
 export const OffersTable = ({
@@ -134,7 +134,8 @@ export const OffersTable = ({
     errorMessage,
     statusOptions,
     onStatusChange,
-    onOpenChat
+    onOpenChat,
+    onDownloadFile
 }: OffersTableProps) => {
     const theme = useTheme();
     const statusContent = errorMessage ? <Typography color="error">{errorMessage}</Typography> : undefined;
@@ -154,7 +155,6 @@ export const OffersTable = ({
             storageKey="offers-table"
             renderRow={(offer) => {
                 const notificationStyle = getNotificationStyle(offer.status, notificationPalette);
-                const fileUrl = getDownloadUrl(offer.id_file, offer.file_path);
                 const contactInfo = getContactInfo(offer);
                 const counterparty = offer.real_name ?? offer.tg_username ?? '-';
                 const currentStatus = statusMap[offer.offer_id] ?? '';
@@ -188,17 +188,20 @@ export const OffersTable = ({
                     </Stack>,
                     <Typography variant="body2">{formatDate(offer.created_at)}</Typography>,
                     <Typography variant="body2">{formatDate(offer.updated_at)}</Typography>,
-                    fileUrl ? (
-                        <Typography
-                            component="a"
-                            href={fileUrl}
-                            target="_blank"
-                            rel="noreferrer"
-                            variant="body2"
-                            sx={{ color: 'primary.main', textDecoration: 'underline' }}
-                        >
-                            Скачать
-                        </Typography>
+                    offer.files.length > 0 ? (
+                        <Stack spacing={0.5}>
+                            {offer.files.map((file) => (
+                                <Button
+                                    key={file.id}
+                                    size="small"
+                                    variant="text"
+                                    onClick={() => onDownloadFile(file.download_url, file.name)}
+                                    sx={{ p: 0, textTransform: 'none', justifyContent: 'flex-start', minWidth: 0 }}
+                                >
+                                    Скачать {offer.files.length > 1 ? file.name : ''}
+                                </Button>
+                            ))}
+                        </Stack>
                     ) : (
                         <Typography variant="body2">-</Typography>
                     ),

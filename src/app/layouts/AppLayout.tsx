@@ -28,6 +28,7 @@ export const AppLayout = () => {
   const roleId = session?.roleId ?? null;
   const isSuperadmin = roleId === 1;
   const isRequestsListPage = location.pathname === '/requests';
+  const isRequestDetailsPage = /^\/requests\/\d+$/.test(location.pathname);
   const canCreateRequest = hasAvailableAction(session, '/api/v1/requests', 'POST');
   
   const sidebarButtons = (
@@ -113,7 +114,15 @@ export const AppLayout = () => {
   return (
     <Box sx={{ minHeight: '100vh', backgroundColor: 'background.default', p: { xs: 1.5, md: 2.5 } }}>
       <Stack component="header" direction="row" alignItems="center" justifyContent="space-between" sx={{ mb: 2 }}>
-        {isRequestsListPage && canCreateRequest ? (
+        {isRequestDetailsPage ? (
+          <Button
+            variant="outlined"
+            sx={{ px: 4, borderColor: 'primary.main', color: 'primary.main', whiteSpace: 'nowrap' }}
+            onClick={() => navigate('/requests')}
+          >
+            К списку заявок
+          </Button>
+        ) : isRequestsListPage && canCreateRequest ? (
           <Button
             variant="contained"
             sx={{ px: 3, boxShadow: 'none', '&:hover': { boxShadow: 'none' } }}
