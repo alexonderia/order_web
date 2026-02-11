@@ -23,7 +23,7 @@ export const createRequest = async (payload: CreateRequestPayload): Promise<Crea
   }
 
   payload.files.forEach((file) => {
-    formData.append('files', file);
+    formData.append('files', file, file.name);
   });
 
   const response = await apiFetch('/api/v1/requests', {

@@ -88,7 +88,9 @@ const StatusPill = ({ value }: { value: string | null | undefined }) => {
         fontSize: 12,
         fontWeight: 700,
         lineHeight: 1.3,
-        textTransform: 'lowercase'
+        textTransform: 'lowercase',
+        width: 'fit-content',
+        display: 'inline-flex'
       }}
     >
       {value ?? '—'}
@@ -97,11 +99,11 @@ const StatusPill = ({ value }: { value: string | null | undefined }) => {
 };
 
 const InfoRow = ({ label, value }: { label: string; value: string | number | null }) => (
-  <Stack spacing={0.2}>
+  <Stack spacing={0.2} sx={{ minWidth: 0 }}>
     <Typography variant="caption" color="text.secondary" sx={{ textTransform: 'uppercase', letterSpacing: '0.04em' }}>
       {label}
     </Typography>
-    <Typography variant="body1" sx={{ fontWeight: 500, color: '#1f2a44' }}>
+    <Typography variant="body1" sx={{ fontWeight: 500, color: '#1f2a44', overflowWrap: 'anywhere' }}>
       {value ?? '—'}
     </Typography>
   </Stack>
@@ -119,7 +121,7 @@ const SourceSection = ({
   <Box
     sx={{
       border: '1px solid #d6dfef',
-      borderRadius: 2.5,
+      borderRadius: 2,
       p: { xs: 1.4, sm: 1.8 },
       backgroundColor: '#ffffff'
     }}
@@ -283,14 +285,15 @@ export const UsersTable = ({
         fullWidth
         PaperProps={{
           sx: {
-            borderRadius: 4,
-            p: { xs: 2.5, md: 3 }
+            borderRadius: 2,
+            p: { xs: 2, md: 2.5 },
+            maxHeight: '92vh'
           }
         }}
       >
         <DialogContent sx={{ p: 0 }}>
           {selectedUser ? (
-            <Stack spacing={2.2}>
+            <Stack spacing={1.8}>
               <Typography variant="h5" fontWeight={700} textAlign="center">
                 Карточка контрагента
               </Typography>
@@ -298,53 +301,72 @@ export const UsersTable = ({
               <Box
                 sx={{
                   border: '1px solid #d3dbe7',
-                  borderRadius: 3,
-                  p: { xs: 1.8, sm: 2.2 },
+                  borderRadius: 1,
+                  p: { xs: 1.4, sm: 1.6 },
                   backgroundColor: '#f8fbff'
                 }}
               >
-                <Stack spacing={1.6}>
+                <Stack spacing={1.2}>
                   <SourceSection title="Пользователь" source="users">
-                    <Stack direction={{ xs: 'column', sm: 'row' }} alignItems={{ xs: 'flex-start', sm: 'center' }} justifyContent="space-between" spacing={1.5}>
+                    <Box
+                      sx={{
+                        display: 'grid',
+                        gridTemplateColumns: { xs: '1fr', sm: '1fr 1fr' },
+                        gap: 1.5
+                      }}
+                    >
                       <InfoRow label="Логин" value={selectedUser.user_id} />
-                      <Stack spacing={0.2}>
+                      <Stack spacing={0.2} sx={{ alignItems: 'flex-start' }}>
                         <Typography variant="caption" color="text.secondary" sx={{ textTransform: 'uppercase', letterSpacing: '0.04em' }}>
                           Статус users
                         </Typography>
                         <StatusPill value={selectedUser.status} />
                       </Stack>
-                    </Stack>
+                    </Box>
                   </SourceSection>
 
                   <SourceSection title="Профиль пользователя" source="profiles">
-                    <Box
-                      sx={{
-                        display: 'grid',
-                        gridTemplateColumns: { xs: '1fr', md: '1fr 1fr' },
-                        gap: 1.5
-                      }}
-                    >
+                    <Stack spacing={1.2}>
                       <InfoRow label="ФИО" value={selectedUser.full_name} />
-                      <InfoRow label="Телефон" value={selectedUser.phone} />
-                      <InfoRow label="E-mail" value={selectedUser.mail} />
-                    </Box>
+                      <Box
+                        sx={{
+                          display: 'grid',
+                          gridTemplateColumns: { xs: '1fr', md: '1fr 1fr' },
+                          gap: 1.2
+                        }}
+                      >
+                        <InfoRow label="Телефон" value={selectedUser.phone} />
+                        <InfoRow label="E-mail" value={selectedUser.mail} />
+                      </Box>
+                    </Stack>
                   </SourceSection>
 
                   <SourceSection title="Контакты компании" source="company_contacts">
-                    <Box
-                      sx={{
-                        display: 'grid',
-                        gridTemplateColumns: { xs: '1fr', md: '1fr 1fr' },
-                        gap: 1.5
-                      }}
-                    >
-                      <InfoRow label="Компания" value={selectedUser.company_name} />
-                      <InfoRow label="ИНН" value={selectedUser.inn} />
-                      <InfoRow label="Телефон компании" value={selectedUser.company_phone} />
-                      <InfoRow label="E-mail компании" value={selectedUser.company_mail} />
-                      <InfoRow label="Адрес" value={selectedUser.address} />
+                    <Stack spacing={1.2}>
+                      <Box
+                        sx={{
+                          display: 'grid',
+                          gridTemplateColumns: { xs: '1fr', md: '1fr 1fr' },
+                          gap: 1.2
+                        }}
+                      >
+                        <InfoRow label="ИНН" value={selectedUser.inn} />
+                        <InfoRow label="Компания" value={selectedUser.company_name} />
+                      </Box>
+
+                      <Box
+                        sx={{
+                          display: 'grid',
+                          gridTemplateColumns: { xs: '1fr', md: '1fr 1fr' },
+                          gap: 1.2
+                        }}
+                      >
+                        <InfoRow label="Телефон компании" value={selectedUser.company_phone} />
+                        <InfoRow label="E-mail компании" value={selectedUser.company_mail} />
+                        <InfoRow label="Адрес" value={selectedUser.address} />
+                      </Box>                      
                       <InfoRow label="Примечание" value={selectedUser.note} />
-                    </Box>
+                    </Stack>
                   </SourceSection>
 
                   <SourceSection title="Telegram данные" source="tg_users">
@@ -356,7 +378,7 @@ export const UsersTable = ({
                       }}
                     >
                       <InfoRow label="Telegram ID" value={selectedUser.tg_user_id} />
-                      <Stack spacing={0.2}>
+                      <Stack spacing={0.2} sx={{ alignItems: 'flex-start' }}>
                         <Typography variant="caption" color="text.secondary" sx={{ textTransform: 'uppercase', letterSpacing: '0.04em' }}>
                           Telegram статус
                         </Typography>
@@ -372,8 +394,8 @@ export const UsersTable = ({
                   spacing={1.2}
                   sx={{
                     border: '2px solid #bcd0f5',
-                    borderRadius: 3,
-                    p: { xs: 1.6, sm: 2 },
+                    borderRadius: 2,
+                    p: { xs: 1.4, sm: 1.8 },
                     background: 'linear-gradient(180deg, #f4f8ff 0%, #ffffff 100%)',
                     boxShadow: '0 8px 24px rgba(39, 87, 171, 0.12)'
                   }}
@@ -382,13 +404,48 @@ export const UsersTable = ({
                     Изменение статуса
                   </Typography>
                   <Stack direction="row" alignItems="center" spacing={1}>
-                    <TextField label="Изменить статус" select fullWidth defaultValue={selectedUser.status ?? 'review'} {...register('user_status')}>
+                    <TextField
+                      label="Изменить статус"
+                      select
+                      fullWidth
+                      defaultValue={selectedUser.status ?? 'review'}
+                      {...register('user_status')}
+                      sx={{
+                        '& .MuiOutlinedInput-root': {
+                          borderRadius: 2
+                        }
+                      }}
+                    >
                       <MenuItem value="review">review</MenuItem>
                       <MenuItem value="active">active</MenuItem>
                       <MenuItem value="inactive">inactive</MenuItem>
                       <MenuItem value="blacklist">blacklist</MenuItem>
                     </TextField>
-                    <Tooltip title={<Typography component="pre" sx={{ m: 0, fontFamily: 'inherit' }}>{statusMemoText}</Typography>}>
+                    <Tooltip
+                      arrow
+                      placement="top-start"
+                      title={
+                        <Typography
+                          variant="body2"
+                          sx={{
+                            m: 0,
+                            whiteSpace: 'pre-line',
+                            lineHeight: 1.45
+                          }}
+                        >
+                          {statusMemoText}
+                        </Typography>
+                      }
+                      slotProps={{
+                        tooltip: {
+                          sx: {
+                            maxWidth: 380,
+                            p: 1.4,
+                            borderRadius: 2
+                          }
+                        }
+                      }}
+                    >
                       <Box
                         component="span"
                         sx={{

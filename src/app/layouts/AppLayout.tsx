@@ -1,6 +1,7 @@
 import { Box, Button, Stack, Typography } from '@mui/material';
 import { NavLink, Outlet, useLocation, useNavigate } from 'react-router-dom';
 import { useAuth } from '@app/providers/AuthProvider';
+import { hasAvailableAction } from '@shared/auth/availableActions';
 
 const navLinkStyles = {
   textDecoration: 'none'
@@ -27,6 +28,7 @@ export const AppLayout = () => {
   const roleId = session?.roleId ?? null;
   const isSuperadmin = roleId === 1;
   const isRequestsListPage = location.pathname === '/requests';
+  const canCreateRequest = hasAvailableAction(session, '/api/v1/requests', 'POST');
   
   const sidebarButtons = (
     <Stack spacing={1.8}>
@@ -87,7 +89,7 @@ export const AppLayout = () => {
           </Button>
         </Stack>
         <Stack component="section" spacing={2} sx={{ minWidth: 0 }}>
-          {isRequestsListPage ? (
+          {isRequestsListPage && canCreateRequest ? (
             <Stack direction="row" justifyContent="flex-end">
               <Button
                 variant="contained"
@@ -111,7 +113,7 @@ export const AppLayout = () => {
   return (
     <Box sx={{ minHeight: '100vh', backgroundColor: 'background.default', p: { xs: 1.5, md: 2.5 } }}>
       <Stack component="header" direction="row" alignItems="center" justifyContent="space-between" sx={{ mb: 2 }}>
-        {isRequestsListPage ? (
+        {isRequestsListPage && canCreateRequest ? (
           <Button
             variant="contained"
             sx={{ px: 3, boxShadow: 'none', '&:hover': { boxShadow: 'none' } }}

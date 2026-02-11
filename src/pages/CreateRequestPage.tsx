@@ -1,22 +1,38 @@
 import { zodResolver } from '@hookform/resolvers/zod';
-import { Box, Button, IconButton, Stack, TextField, Typography } from '@mui/material';
+import { Alert, Box, Button, Chip, IconButton, Stack, TextField, Typography } from '@mui/material';
 import { alpha } from '@mui/material/styles';
 import { useMemo, useState } from 'react';
 import { Controller, useForm } from 'react-hook-form';
-import { useNavigate } from 'react-router-dom';
+import { Navigate, useNavigate } from 'react-router-dom';
 import { z } from 'zod';
+import { useAuth } from '@app/providers/AuthProvider';
 import { createRequest } from '@shared/api/createRequest';
+import { hasAvailableAction } from '@shared/auth/availableActions';
 
 const schema = z.object({
-  description: z.string().max(3000, 'Максимум 3000 символов').optional(),
-  deadlineAt: z.string().min(1, 'Укажите дату сбора КП'),
-  files: z.array(z.instanceof(File)).min(1, 'Добавьте хотя бы один файл')
+    description: z.string().max(3000, 'Максимум 3000 символов').optional(),
+    deadlineAt: z.string().min(1, 'Укажите дату сбора КП'),
+    files: z.array(z.instanceof(File)).min(1, 'Добавьте хотя бы один файл')
 });
-
 type FormValues = z.infer<typeof schema>;
 
+const getFileKey = (file: File) => `${file.name}-${file.size}-${file.lastModified}`;
+
+const mergeUniqueFiles = (currentFiles: File[], addedFiles: File[]) => {
+    const fileMap = new Map<string, File>();
+
+    [...currentFiles, ...addedFiles].forEach((file) => {
+        fileMap.set(getFileKey(file), file);
+    });
+
+    return Array.from(fileMap.values());
+};
+
+
 export const CreateRequestPage = () => {
+    const { session } = useAuth();
     const navigate = useNavigate();
+    const canCreateRequest = hasAvailableAction(session, '/api/v1/requests', 'POST');
     const todayDate = useMemo(() => {
         const now = new Date();
         const offsetMs = now.getTimezoneOffset() * 60000;
@@ -30,6 +46,7 @@ export const CreateRequestPage = () => {
         register,
         handleSubmit,
         watch,
+        setValue,
         formState: { errors }
     } = useForm<FormValues>({
         resolver: zodResolver(schema),
@@ -42,13 +59,22 @@ export const CreateRequestPage = () => {
 
     const files = watch('files');
 
+    const handleRemoveFile = (fileToRemove: File) => {
+        const nextFiles = files.filter((file) => getFileKey(file) !== getFileKey(fileToRemove));
+        setValue('files', nextFiles, {
+            shouldDirty: true,
+            shouldTouch: true,
+            shouldValidate: true
+        });
+    };
+
     const onSubmit = async (values: FormValues) => {
         setIsSubmittingRequest(true);
         setErrorMessage(null);
         try {
             await createRequest({
                 description: values.description?.trim() || null,
-                deadline_at: `${values.deadlineAt}T00:00:00`,
+                deadline_at: `${values.deadlineAt}T23:59:59`,
                 files: values.files
             });
             navigate('/requests');
@@ -59,15 +85,19 @@ export const CreateRequestPage = () => {
         }
     };
 
+    if (!canCreateRequest) {
+        return <Navigate to="/requests" replace />;
+    }
+
     return (
         <Box
             sx={{
                 minHeight: '100vh',
                 backgroundColor: 'background.default',
                 display: 'flex',
-                alignItems: 'center',
+                alignItems: 'flex-start',
                 justifyContent: 'center',
-                padding: { xs: 2, md: 4 }
+                padding: 0
             }}
         >
             <Box
@@ -76,7 +106,7 @@ export const CreateRequestPage = () => {
                 sx={(theme) => ({
                     width: { xs: '100%', sm: 560 },
                     backgroundColor: theme.palette.background.paper,
-                    borderRadius: 4,
+                    borderRadius: 3,
                     border: `1px solid ${theme.palette.divider}`,
                     padding: { xs: 3, sm: 4 },
                     boxShadow: '0 16px 32px rgba(15, 35, 75, 0.08)'
@@ -103,16 +133,16 @@ export const CreateRequestPage = () => {
                     {...register('description')}
                     sx={{
                         backgroundColor: 'background.paper',
-                        borderRadius: 3,
+                        borderRadius: 2,
                         '& .MuiOutlinedInput-root': {
-                            borderRadius: 3
+                            borderRadius: 2
                         }
                     }}
                 />
 
                 <Stack direction={{ xs: 'column', sm: 'row' }} spacing={2} mt={3} alignItems="center">
                     <Typography variant="subtitle1" fontWeight={500}>
-                        Сбор КП до
+                        Сбор КП до 23:59
                     </Typography>
                     <TextField
                         type="date"
@@ -130,6 +160,10 @@ export const CreateRequestPage = () => {
                         })}
                     />
                 </Stack>
+
+                <Alert severity="info" sx={{ mt: 2, borderRadius: 3 }}>
+                    Карта партнера будет прикреплена к заявке автоматически.
+                </Alert>
 
                 <Stack direction={{ xs: 'column', sm: 'row' }} spacing={2} mt={2} alignItems="flex-start">
                     <Button
@@ -150,19 +184,47 @@ export const CreateRequestPage = () => {
                         <Controller
                             control={control}
                             name="files"
-                            render={({ field: { onChange } }) => (
+                            render={({ field: { value, onChange } }) => (
                                 <input
                                     type="file"
                                     hidden
                                     multiple
-                                    onChange={(event) => onChange(Array.from(event.target.files ?? []))}
+                                    onChange={(event) => {
+                                        const nextFiles = Array.from(event.target.files ?? []);
+                                        onChange(mergeUniqueFiles(value ?? [], nextFiles));
+                                        event.target.value = '';
+                                    }}
                                 />
                             )}
                         />
                     </Button>
                     <Stack spacing={0.5}>
-                        {files.length > 0 ? files.map((file) => <Typography key={file.name}>{file.name}</Typography>) : <Typography variant="body2">Файлы не выбраны</Typography>}
-                        {errors.files ? <Typography variant="caption" color="error">{errors.files.message}</Typography> : null}
+                        {files.length > 0 ? (
+                            <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1 }}>
+                                {files.map((file) => (
+                                    <Chip
+                                        key={getFileKey(file)}
+                                        label={file.name}
+                                        onDelete={() => handleRemoveFile(file)}
+                                        variant="outlined"
+                                        sx={{
+                                            maxWidth: '100%',
+                                            '& .MuiChip-label': {
+                                                overflow: 'hidden',
+                                                textOverflow: 'ellipsis'
+                                            }
+                                        }}
+                                    />
+                                ))}
+                            </Box>
+                        ) : (
+                            <Typography variant="body2">Файлы не выбраны</Typography>
+                        )}
+                        {errors.files ? (
+                            <Typography variant="caption" color="error">
+                                {errors.files.message}
+                            </Typography>
+                        ) : null}
                     </Stack>
                 </Stack>
 
