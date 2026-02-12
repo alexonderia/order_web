@@ -5,9 +5,11 @@ import { RequestsTable } from '@features/requests/components/RequestsTable';
 import { getOffers } from '@shared/api/getOffers';
 import { getRequests } from '@shared/api/getRequests';
 import type { RequestWithOfferStats } from '@shared/api/getRequests';
+import { getOpenRequests } from '@shared/api/getOpenRequests';
 import { getRequestEconomists } from '@shared/api/getRequestEconomists';
 import { updateRequestDetails } from '@shared/api/updateRequestDetails';
 import { useAuth } from '@app/providers/AuthProvider';
+import { hasAvailableAction } from '@shared/auth/availableActions';
 
 export const RequestsPage = () => {
     const { session } = useAuth();
@@ -19,6 +21,11 @@ export const RequestsPage = () => {
     const [errorMessage, setErrorMessage] = useState<string | null>(null);
     const [chatAlertsMap, setChatAlertsMap] = useState<Record<number, number>>({});
     const pollIntervalMs = 10000;
+    const canLoadOnlyOpenRequests = useMemo(
+        () => session?.roleId === 5 && hasAvailableAction(session, '/api/v1/requests/open', 'GET'),
+        [session]
+    );
+
 
     const canEditOwner = useMemo(() => session?.roleId === 1 || session?.roleId === 3, [session?.roleId]);
 
@@ -29,7 +36,7 @@ export const RequestsPage = () => {
             }
             setErrorMessage(null);
             try {
-                const data = await getRequests();
+                const data = canLoadOnlyOpenRequests ? await getOpenRequests() : await getRequests();
                 setRequests(data.requests);
             } catch (error) {
                 setErrorMessage(error instanceof Error ? error.message : 'Ошибка загрузки заявок');
@@ -39,7 +46,7 @@ export const RequestsPage = () => {
                 }
             }
         },
-        []
+        [canLoadOnlyOpenRequests]
     );
 
     const fetchOwners = useCallback(async () => {
