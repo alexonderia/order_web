@@ -1,7 +1,7 @@
 import { fetchJson  } from './client';
 
 export type UpdateOfferStatusPayload = {
-  id_user_web: string;
+  id_user: string;
   offer_id: number;
   status: string;
 };

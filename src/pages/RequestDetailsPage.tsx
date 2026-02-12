@@ -19,16 +19,16 @@ import type { RequestWithOfferStats } from '@shared/api/getRequests';
 import { getOfferComments } from '@shared/api/getOfferComments';
 import { getRequestDetails } from '@shared/api/getRequestDetails';
 import type { RequestDetails, RequestDetailsFile, RequestDetailsOffer } from '@shared/api/getRequestDetails';
+import { getRequestEconomists } from '@shared/api/getRequestEconomists';
 import { markDeletedAlertViewed } from '@shared/api/markDeletedAlertViewed';
 import { notifyOfferComment } from '@shared/api/notifyOfferComment';
 import { updateOfferStatus } from '@shared/api/updateOfferStatus';
-import { updateRequestDetails } from '@shared/api/updateRequestDetails';
+import { deleteRequestFile, updateRequestDetails, uploadRequestFile } from '@shared/api/updateRequestDetails';
 import { downloadFile } from '@shared/api/fileDownload';
 import { hasAvailableAction } from '@shared/auth/availableActions';
 import { DataTable } from '@shared/components/DataTable';
 
 type RequestStatus = 'open' | 'review' | 'closed' | 'cancelled';
-
 
 const statusOptions = [
     { value: 'open', label: 'Открыта', color: '#2e7d32' },
@@ -46,7 +46,6 @@ const detailsColumns = [
     { key: 'label', label: 'Параметр' },
     { key: 'value', label: 'Значение' }
 ];
-
 
 const formatDate = (value: string | null) => {
     if (!value) {
@@ -81,6 +80,8 @@ const normalizeOfferStatus = (value: string | null): OfferDecisionStatus => {
 
 const getFileKey = (file: File) => `${file.name}-${file.size}-${file.lastModified}`;
 
+const toDeadlineIso = (date: string) => `${date}T23:59:59`;
+
 export const RequestDetailsPage = () => {
     const navigate = useNavigate();
     const location = useLocation();
@@ -95,9 +96,12 @@ export const RequestDetailsPage = () => {
     const [baselineStatus, setBaselineStatus] = useState<RequestStatus>('open');
     const [deadline, setDeadline] = useState<string>('');
     const [baselineDeadline, setBaselineDeadline] = useState<string>('');
+    const [ownerUserId, setOwnerUserId] = useState<string>('');
+    const [baselineOwnerUserId, setBaselineOwnerUserId] = useState<string>('');
+    const [ownerOptions, setOwnerOptions] = useState<Array<{ id: string; label: string }>>([]);
     const [existingFiles, setExistingFiles] = useState<RequestDetailsFile[]>([]);
     const [deletedFileIds, setDeletedFileIds] = useState<number[]>([]);
-    const [newFiles, setNewFiles] = useState<File[]>([]);
+    const [newFile, setNewFile] = useState<File | null>(null);
 
     const [isSaving, setIsSaving] = useState(false);
     const [errorMessage, setErrorMessage] = useState<string | null>(null);
@@ -119,7 +123,7 @@ export const RequestDetailsPage = () => {
         [status]
     );
     const hasDeletedAlert = (requestDetails?.count_deleted_alert ?? 0) > 0;
-    const hasFileChanges = deletedFileIds.length > 0 || newFiles.length > 0;
+    const hasFileChanges = deletedFileIds.length > 0 || Boolean(newFile);
     const canEditRequest = useMemo(
         () =>
             hasAvailableAction(
@@ -128,6 +132,10 @@ export const RequestDetailsPage = () => {
                 'PATCH'
             ),
         [requestDetails?.availableActions, requestId]
+    );
+    const canEditOwner = useMemo(
+        () => canEditRequest && (session?.roleId === 1 || session?.roleId === 3),
+        [canEditRequest, session?.roleId]
     );
 
     const todayDate = useMemo(() => {
@@ -149,13 +157,16 @@ export const RequestDetailsPage = () => {
         if (forceBaseline) {
             const nextStatus = (statusOptions.find((o) => o.value === nextRequest.status)?.value ?? 'open') as RequestStatus;
             const nextDeadline = toDateInputValue(nextRequest.deadline_at);
+            const nextOwner = nextRequest.id_user ?? '';
             setStatus(nextStatus);
             setBaselineStatus(nextStatus);
             setDeadline(nextDeadline);
             setBaselineDeadline(nextDeadline);
+            setOwnerUserId(nextOwner);
+            setBaselineOwnerUserId(nextOwner);
             setExistingFiles(nextRequest.files ?? []);
             setDeletedFileIds([]);
-            setNewFiles([]);
+            setNewFile(null);
         }
     }, []);
 
@@ -170,7 +181,10 @@ export const RequestDetailsPage = () => {
             try {
                 const nextRequest = await getRequestDetails(requestId);
                 const hasLocalChanges =
-                    status !== baselineStatus || deadline !== baselineDeadline || hasFileChanges;
+                    status !== baselineStatus ||
+                    deadline !== baselineDeadline ||
+                    ownerUserId !== baselineOwnerUserId ||
+                    hasFileChanges;
                 syncRequestState(nextRequest, !hasLocalChanges);
                 setOffersError(null);
             } catch (error) {
@@ -181,8 +195,37 @@ export const RequestDetailsPage = () => {
                 }
             }
         },
-        [baselineDeadline, baselineStatus, deadline, hasFileChanges, requestId, status, syncRequestState]
+        [
+            baselineDeadline,
+            baselineOwnerUserId,
+            baselineStatus,
+            deadline,
+            hasFileChanges,
+            ownerUserId,
+            requestId,
+            status,
+            syncRequestState
+        ]
     );
+
+    const fetchOwners = useCallback(async () => {
+        if (!canEditOwner) {
+            setOwnerOptions([]);
+            return;
+        }
+
+        try {
+            const economists = await getRequestEconomists();
+            setOwnerOptions(
+                economists.map((item) => ({
+                    id: item.user_id,
+                    label: `${item.full_name?.trim() || item.user_id} (${item.role})`
+                }))
+            );
+        } catch {
+            setOwnerOptions([]);
+        }
+    }, [canEditOwner]);
 
 
     useEffect(() => {
@@ -193,6 +236,10 @@ export const RequestDetailsPage = () => {
         return () => window.clearInterval(intervalId);
     }, [fetchRequest]);
 
+    useEffect(() => {
+        void fetchOwners();
+    }, [fetchOwners]);
+
     const handleSave = async () => {
         const currentRequest = requestDetails;
         if (!currentRequest || !canEditRequest) {
@@ -200,32 +247,58 @@ export const RequestDetailsPage = () => {
         }
 
         const statusChanged = status !== baselineStatus;
-        const deadlineChanged = deadline !== baselineDeadline;
+        const ownerChanged = ownerUserId !== baselineOwnerUserId;
+        const isReopen = statusChanged && baselineStatus !== 'open' && status === 'open';
+        let effectiveDeadline = deadline;
+        if (status === 'review') {
+            effectiveDeadline = todayDate;
+        }
+        const deadlineChanged = effectiveDeadline !== baselineDeadline;
 
-        if (!statusChanged && !deadlineChanged && !hasFileChanges) {
+        if (!statusChanged && !deadlineChanged && !ownerChanged && !hasFileChanges) {
             setErrorMessage('Нет изменений для сохранения');
             setSuccessMessage(null);
             return;
         }
 
-        if (deadlineChanged && !deadline) {
-            setErrorMessage('Укажите дату дедлайна');
+        if ((deadlineChanged || isReopen) && !effectiveDeadline) {
+            setErrorMessage('При повторном открытии заявки необходимо установить дедлайн');
             setSuccessMessage(null);
             return;
         }
 
-        if (deadlineChanged && deadline && deadline < todayDate) {
+        if (effectiveDeadline && effectiveDeadline < todayDate) {
             setErrorMessage('Дедлайн не может быть раньше текущей даты');
             setSuccessMessage(null);
             return;
         }
 
-        if (deadlineChanged && status !== 'open' && baselineDeadline && deadline > baselineDeadline) {
-            setErrorMessage('Нельзя продлить дедлайн, если заявка не в статусе "Открыта"');
+        if (deadlineChanged && status !== 'open' && status !== 'review') {
+            setErrorMessage('Для изменения дедлайна заявку необходимо повторно открыть');
             setSuccessMessage(null);
             return;
         }
 
+        if (status === 'closed') {
+            const hasAcceptedOffer = offers.some((offer) => offer.status === 'accepted');
+            if (!hasAcceptedOffer) {
+                setErrorMessage('Нельзя закрыть заявку без оффера со статусом accepted');
+                setSuccessMessage(null);
+                return;
+            }
+        }
+
+        if (ownerChanged && !canEditOwner) {
+            setErrorMessage('Изменение ответственного доступно только суперадмину и ведущему экономисту');
+            setSuccessMessage(null);
+            return;
+        }
+
+        if (ownerChanged && ownerUserId && !ownerOptions.some((option) => option.id === ownerUserId)) {
+            setErrorMessage('Назначить ответственным можно только ведущего экономиста или экономиста');
+            setSuccessMessage(null);
+            return;
+        }
         setIsSaving(true);
         setErrorMessage(null);
         setSuccessMessage(null);
@@ -234,10 +307,15 @@ export const RequestDetailsPage = () => {
             await updateRequestDetails({
                 requestId: currentRequest.id,
                 status: statusChanged ? status : undefined,
-                deadline_at: deadlineChanged ? `${deadline}T23:59:59` : undefined,
-                delete_file_ids: deletedFileIds,
-                files: newFiles
+                deadline_at: deadlineChanged ? toDeadlineIso(effectiveDeadline) : undefined,
+                owner_user_id: ownerChanged ? ownerUserId : undefined
             });
+
+            await Promise.all(deletedFileIds.map((fileId) => deleteRequestFile(currentRequest.id, fileId)));
+            if (newFile) {
+                await uploadRequestFile(currentRequest.id, newFile);
+            }
+
             const refreshed = await getRequestDetails(currentRequest.id);
             syncRequestState(refreshed, true);
             setSuccessMessage('Изменения сохранены');
@@ -262,7 +340,7 @@ export const RequestDetailsPage = () => {
 
         try {
             const response = await updateOfferStatus({
-                id_user_web: userLogin,
+                id_user: userLogin,
                 offer_id: offerId,
                 status: value
             });
@@ -333,7 +411,7 @@ export const RequestDetailsPage = () => {
         setChatError(null);
         try {
             const response = await notifyOfferComment({
-                id_user_web: userLogin,
+                id_user: userLogin,
                 offer_id: activeOfferChatId,
                 comment
             });
@@ -368,7 +446,7 @@ export const RequestDetailsPage = () => {
         setErrorMessage(null);
         try {
             const response = await markDeletedAlertViewed({
-                id_user_web: userLogin,
+                id_user: userLogin,
                 request_id: requestDetails.id
             });
             setRequestDetails((prev) => {
@@ -401,18 +479,26 @@ export const RequestDetailsPage = () => {
         setDeletedFileIds((prev) => (prev.includes(fileId) ? prev : [...prev, fileId]));
     };
 
-    const handleAddFiles = (nextFiles: File[]) => {
-        setNewFiles((prev) => {
-            const fileMap = new Map<string, File>();
-            [...prev, ...nextFiles].forEach((file) => {
-                fileMap.set(getFileKey(file), file);
-            });
-            return Array.from(fileMap.values());
-        });
-    };
 
     const detailsRows = [
-        { id: 'creator', label: 'Создатель заявки', value: requestDetails?.id_user_web ?? '-' },
+        {
+            id: 'owner',
+            label: 'Ответственный',
+            value: canEditOwner ? (
+                <Select
+                    size="small"
+                    value={ownerUserId}
+                    onChange={(event) => setOwnerUserId(event.target.value)}
+                    sx={{ minWidth: 200 }}
+                >
+                    {ownerOptions.map((option) => (
+                        <MenuItem key={option.id} value={option.id}>
+                            {option.label}
+                        </MenuItem>
+                    ))}
+                </Select>
+            ) : (requestDetails?.id_user ?? '-')
+        },
         { id: 'created', label: 'Создана', value: formatDate(requestDetails?.created_at ?? null) },
         { id: 'closed', label: 'Закрыта', value: formatDate(requestDetails?.closed_at ?? null) },
         { id: 'offer', label: 'Номер КП', value: requestDetails?.id_offer ?? '-' },
@@ -471,7 +557,13 @@ export const RequestDetailsPage = () => {
                     <Select
                         size="small"
                         value={status}
-                        onChange={(event) => setStatus(event.target.value as RequestStatus)}
+                        onChange={(event) => {
+                            const nextStatus = event.target.value as RequestStatus;
+                            setStatus(nextStatus);
+                            if (nextStatus === 'review') {
+                                setDeadline(todayDate);
+                            }
+                        }}
                         disabled={!canEditRequest}
                         sx={{
                             minWidth: 200,
@@ -552,27 +644,20 @@ export const RequestDetailsPage = () => {
                                     Прикрепить новые файлы
                                     <input
                                         hidden
-                                        multiple
                                         type="file"
                                         onChange={(event) => {
-                                            handleAddFiles(Array.from(event.target.files ?? []));
+                                            setNewFile(event.target.files?.[0] ?? null);
                                             event.target.value = '';
                                         }}
                                     />
                                 </Button>
-                                {newFiles.length > 0 && (
-                                    <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1 }}>
-                                        {newFiles.map((file) => (
-                                            <Chip
-                                                key={getFileKey(file)}
-                                                label={file.name}
-                                                variant="outlined"
-                                                onDelete={() =>
-                                                    setNewFiles((prev) => prev.filter((item) => getFileKey(item) !== getFileKey(file)))
-                                                }
-                                            />
-                                        ))}
-                                    </Box>
+                                {newFile && (
+                                    <Chip
+                                        key={getFileKey(newFile)}
+                                        label={newFile.name}
+                                        variant="outlined"
+                                        onDelete={() => setNewFile(null)}
+                                    />
                                 )}
                             </>
                         )}

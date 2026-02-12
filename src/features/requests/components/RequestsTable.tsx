@@ -1,4 +1,4 @@
-import { Chip, Stack, Typography } from '@mui/material';
+import { Chip, MenuItem, Select, Stack, Typography } from '@mui/material';
 import { alpha, useTheme } from '@mui/material/styles';
 import type { RequestWithOfferStats } from '@shared/api/getRequests';
 import { DataTable } from '@shared/components/DataTable';
@@ -13,19 +13,25 @@ const columns = [
     { key: 'closed', label: 'Закрыта', minWidth: 120, fraction: 1.1 },
 
     { key: 'offer', label: 'Номер КП', minWidth: 100, fraction: 0.9 },
-    { key: 'creator', label: 'Создатель', minWidth: 120, fraction: 1.0 },
+    { key: 'owner', label: 'Ответственный', minWidth: 160, fraction: 1.2 },
 
     { key: 'updated', label: 'Последнее обновление', minWidth: 150, fraction: 1.3 },
     { key: 'notification', label: 'Уведомление', minWidth: 200, fraction: 1.6 },
 ];
 
-
+type OwnerOption = {
+    id: string;
+    label: string;
+};
 
 type RequestsTableProps = {
     requests: RequestWithOfferStats[];
     isLoading?: boolean;
     onRowClick?: (request: RequestWithOfferStats) => void;
     chatAlertsMap?: Record<number, number>;
+    ownerOptions?: OwnerOption[];
+    canEditOwner?: boolean;
+    onOwnerChange?: (request: RequestWithOfferStats, ownerUserId: string) => void;
 };
 
 const formatDate = (value: string | null, withTime = false) => {
@@ -190,7 +196,15 @@ const NotificationContent = ({
     );
 };
 
-export const RequestsTable = ({ requests, isLoading, onRowClick, chatAlertsMap }: RequestsTableProps) => {
+export const RequestsTable = ({
+    requests,
+    isLoading,
+    onRowClick,
+    chatAlertsMap,
+    ownerOptions = [],
+    canEditOwner = false,
+    onOwnerChange
+}: RequestsTableProps) => {
     const theme = useTheme();
     const submittedColor = theme.palette.success.main;
     const deletedColor = theme.palette.error.main;
@@ -213,7 +227,23 @@ export const RequestsTable = ({ requests, isLoading, onRowClick, chatAlertsMap }
                 <Typography variant="body2">{formatDate(row.created_at)}</Typography>,
                 <Typography variant="body2">{formatDate(row.closed_at)}</Typography>,
                 <Typography variant="body2">{row.id_offer ?? '-'}</Typography>,
-                <Typography variant="body2">{row.id_user_web}</Typography>,
+                canEditOwner ? (
+                    <Select
+                        size="small"
+                        value={row.id_user}
+                        onClick={(event) => event.stopPropagation()}
+                        onChange={(event) => onOwnerChange?.(row, event.target.value)}
+                        sx={{ minWidth: 150 }}
+                    >
+                        {ownerOptions.map((option) => (
+                            <MenuItem key={option.id} value={option.id}>
+                                {option.label}
+                            </MenuItem>
+                        ))}
+                    </Select>
+                ) : (
+                    <Typography variant="body2">{row.id_user}</Typography>
+                ),
                 <Typography variant="body2">{formatDate(row.updated_at, true)}</Typography>,
                 <NotificationContent
                     countSubmitted={row.count_submitted ?? 0}

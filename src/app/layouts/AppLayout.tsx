@@ -95,7 +95,7 @@ export const AppLayout = () => {
               <Button
                 variant="contained"
                 sx={{ px: 3, boxShadow: 'none', '&:hover': { boxShadow: 'none' } }}
-                onClick={() => navigate('/requests/create')}
+                onClick={() => navigate('/requests/create', { state: { backgroundLocation: location } })}
               >
                 Создать заявку
               </Button>
@@ -126,7 +126,7 @@ export const AppLayout = () => {
           <Button
             variant="contained"
             sx={{ px: 3, boxShadow: 'none', '&:hover': { boxShadow: 'none' } }}
-            onClick={() => navigate('/requests/create')}
+            onClick={() => navigate('/requests/create', { state: { backgroundLocation: location } })}
           >
             Создать заявку
           </Button>

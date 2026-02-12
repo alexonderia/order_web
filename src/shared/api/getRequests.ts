@@ -9,7 +9,7 @@ export type RequestFile = {
 
 export type RequestWithOfferStats = {
   id: number;
-  id_user_web: string;
+  id_user: string;
   status: string;
   status_label: string;
   deadline_at: string;
@@ -63,7 +63,7 @@ export const getRequests = async (): Promise<GetRequestsResponse> => {
   return {
     requests: response.data.items.map((item) => ({
       id: item.request_id,
-      id_user_web: item.owner_user_id,
+      id_user: item.owner_user_id,
       status: item.status,
       status_label: item.status_label,
       deadline_at: item.deadline_at,

@@ -25,7 +25,7 @@ export type GetOfferCommentsPayload = {
 export const getOfferComments = async (
   payload: GetOfferCommentsPayload
 ): Promise<GetOfferCommentsResponse> => {
-  const queryParams = new URLSearchParams({ id_user_web: payload.userLogin });
+  const queryParams = new URLSearchParams({ id_user: payload.userLogin });
   return fetchJson<GetOfferCommentsResponse>(
     `/api/web/offers/${payload.offerId}/comments?${queryParams.toString()}`,
     { method: 'GET' },

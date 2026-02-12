@@ -1,41 +1,74 @@
-import { apiFetch } from './client';
+import { apiFetch, fetchEmpty, fetchJson } from './client';
+
+export type RequestStatus = 'open' | 'review' | 'closed' | 'cancelled';
 
 export type UpdateRequestDetailsPayload = {
   requestId: number;
-  status?: 'open' | 'review' | 'closed' | 'cancelled' | null;
+  status?: RequestStatus;
   deadline_at?: string | null;
-  delete_file_ids?: number[];
-  files?: File[];
+  owner_user_id?: string;
 };
 
-export const updateRequestDetails = async (payload: UpdateRequestDetailsPayload) => {
-  const formData = new FormData();
+type UpdateRequestResponse = {
+  data?: {
+    item?: {
+      request_id?: number;
+      status?: string;
+      deadline_at?: string | null;
+      owner_user_id?: string;
+    };
+  };
+};
+
+export const updateRequestDetails = async (
+  payload: UpdateRequestDetailsPayload
+): Promise<UpdateRequestResponse> => {
+  const body: Record<string, string | null> = {};
 
   if (payload.status !== undefined) {
-    formData.append('status', payload.status ?? '');
+    body.status = payload.status;
   }
 
   if (payload.deadline_at !== undefined) {
-    formData.append('deadline_at', payload.deadline_at ?? '');
+    body.deadline_at = payload.deadline_at;
   }
 
-  (payload.delete_file_ids ?? []).forEach((fileId) => {
-    formData.append('delete_file_ids', String(fileId));
-  });
+  if (payload.owner_user_id !== undefined) {
+    body.owner_user_id = payload.owner_user_id;
+  }
 
-  (payload.files ?? []).forEach((file) => {
-    formData.append('files', file, file.name);
-  });
+  return fetchJson<UpdateRequestResponse>(
+    `/api/v1/requests/${payload.requestId}`,
+    {
+      method: 'PATCH',
+      body: JSON.stringify(body)
+    },
+    'Ошибка сохранения заявки'
+  );
+};
 
-  const response = await apiFetch(`/api/v1/requests/${payload.requestId}`, {
-    method: 'PATCH',
+export const deleteRequestFile = async (requestId: number, fileId: number) => {
+  await fetchEmpty(
+    `/api/v1/requests/${requestId}/files/${fileId}`,
+    {
+      method: 'DELETE'
+    },
+    'Ошибка удаления файла'
+  );
+};
+
+  export const uploadRequestFile = async (requestId: number, file: File) => {
+  const formData = new FormData();
+  formData.append('file', file, file.name);
+
+  const response = await apiFetch(`/api/v1/requests/${requestId}/files`, {
+    method: 'POST',
     body: formData
   });
 
   if (!response.ok) {
     const data = await response.json().catch(() => null);
-    throw new Error(data?.detail ?? 'Ошибка сохранения заявки');
+    throw new Error(data?.detail ?? 'Ошибка прикрепления файла');
   }
 
-  return response.json();
 };

@@ -1,7 +1,7 @@
 import { fetchJson } from './client';
 
 export type MarkDeletedAlertViewedPayload = {
-  id_user_web: string;
+  id_user: string;
   request_id: number;
 };
 

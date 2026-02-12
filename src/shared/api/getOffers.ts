@@ -34,7 +34,7 @@ export type GetOffersPayload = {
 };
 
 export const getOffers = async (payload: GetOffersPayload): Promise<GetOffersResponse> => {
-  const queryParams = new URLSearchParams({ id_user_web: payload.userLogin });
+  const queryParams = new URLSearchParams({ id_user: payload.userLogin });
   return fetchJson<GetOffersResponse>(
     `/api/web/requests/${payload.requestId}/offers?${queryParams.toString()}`,
     { method: 'GET' },

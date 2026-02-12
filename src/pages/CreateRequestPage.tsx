@@ -1,5 +1,16 @@
 import { zodResolver } from '@hookform/resolvers/zod';
-import { Alert, Box, Button, Chip, IconButton, Stack, TextField, Typography } from '@mui/material';
+import {
+    Alert,
+    Box,
+    Button,
+    Chip,
+    Dialog,
+    DialogContent,
+    IconButton,
+    Stack,
+    TextField,
+    Typography
+} from '@mui/material';
 import { alpha } from '@mui/material/styles';
 import { useMemo, useState } from 'react';
 import { Controller, useForm } from 'react-hook-form';
@@ -59,6 +70,10 @@ export const CreateRequestPage = () => {
 
     const files = watch('files');
 
+    const handleClose = () => {
+        navigate('/requests');
+    };
+
     const handleRemoveFile = (fileToRemove: File) => {
         const nextFiles = files.filter((file) => getFileKey(file) !== getFileKey(fileToRemove));
         setValue('files', nextFiles, {
@@ -90,173 +105,167 @@ export const CreateRequestPage = () => {
     }
 
     return (
-        <Box
-            sx={{
-                minHeight: '100vh',
-                backgroundColor: 'background.default',
-                display: 'flex',
-                alignItems: 'flex-start',
-                justifyContent: 'center',
-                padding: 0
+        <Dialog
+            open
+            onClose={handleClose}
+            fullWidth
+            maxWidth="sm"
+            PaperProps={{
+                sx: {
+                    borderRadius: 4,
+                    p: { xs: 2, sm: 3 }
+                }
             }}
         >
-            <Box
-                component="form"
-                onSubmit={handleSubmit(onSubmit)}
-                sx={(theme) => ({
-                    width: { xs: '100%', sm: 560 },
-                    backgroundColor: theme.palette.background.paper,
-                    borderRadius: 3,
-                    border: `1px solid ${theme.palette.divider}`,
-                    padding: { xs: 3, sm: 4 },
-                    boxShadow: '0 16px 32px rgba(15, 35, 75, 0.08)'
-                })}
-            >
-                <Stack direction="row" justifyContent="space-between" alignItems="center" mb={2}>
-                    <Typography variant="h5" fontWeight={600}>
-                        Новая заявка
-                    </Typography>
-                    <IconButton aria-label="Закрыть" onClick={() => navigate('/requests')} sx={{ color: 'text.primary' }}>
-                        <Typography component="span" fontSize={28} lineHeight={1}>
-                            ×
+            <DialogContent sx={{ p: 0 }}>
+                <Box component="form" onSubmit={handleSubmit(onSubmit)}>
+                    <Stack direction="row" justifyContent="space-between" alignItems="center" mb={2}>
+                        <Typography variant="h5" fontWeight={600}>
+                            Новая заявка
                         </Typography>
-                    </IconButton>
-                </Stack>
+                        <IconButton aria-label="Закрыть" onClick={handleClose} sx={{ color: 'text.primary' }}>
+                            <Typography component="span" fontSize={28} lineHeight={1}>
+                                ×
+                            </Typography>
+                        </IconButton>
+                    </Stack>
 
-                <TextField
-                    placeholder="Описание заявки"
-                    multiline
-                    minRows={5}
-                    fullWidth
-                    error={Boolean(errors.description)}
-                    helperText={errors.description?.message}
-                    {...register('description')}
-                    sx={{
-                        backgroundColor: 'background.paper',
-                        borderRadius: 2,
-                        '& .MuiOutlinedInput-root': {
-                            borderRadius: 2
-                        }
-                    }}
-                />
 
-                <Stack direction={{ xs: 'column', sm: 'row' }} spacing={2} mt={3} alignItems="center">
-                    <Typography variant="subtitle1" fontWeight={500}>
-                        Сбор КП до 23:59
-                    </Typography>
                     <TextField
-                        type="date"
-                        error={Boolean(errors.deadlineAt)}
-                        helperText={errors.deadlineAt?.message}
-                        inputProps={{ min: todayDate }}
-                        {...register('deadlineAt')}
-                        sx={(theme) => ({
-                            backgroundColor: alpha(theme.palette.primary.main, 0.08),
-                            borderRadius: 999,
-                            '& .MuiOutlinedInput-root': {
-                                borderRadius: 999,
-                                backgroundColor: 'transparent'
-                            }
-                        })}
-                    />
-                </Stack>
-
-                <Alert severity="info" sx={{ mt: 2, borderRadius: 3 }}>
-                    Карта партнера будет прикреплена к заявке автоматически.
-                </Alert>
-
-                <Stack direction={{ xs: 'column', sm: 'row' }} spacing={2} mt={2} alignItems="flex-start">
-                    <Button
-                        variant="outlined"
-                        component="label"
+                        placeholder="Описание заявки"
+                        multiline
+                        minRows={5}
+                        fullWidth
+                        error={Boolean(errors.description)}
+                        helperText={errors.description?.message}
+                        {...register('description')}
                         sx={{
-                            borderRadius: 999,
-                            textTransform: 'none',
-                            paddingX: 3,
-                            borderColor: 'primary.main',
-                            color: 'primary.main'
+                            backgroundColor: 'background.paper',
+                            borderRadius: 2,
+                            '& .MuiOutlinedInput-root': {
+                                borderRadius: 2
+                            }
                         }}
-                    >
-                        <Box component="span" sx={{ marginRight: 1 }}>
-                            🔗
-                        </Box>
-                        Прикрепить файлы
-                        <Controller
-                            control={control}
-                            name="files"
-                            render={({ field: { value, onChange } }) => (
-                                <input
-                                    type="file"
-                                    hidden
-                                    multiple
-                                    onChange={(event) => {
-                                        const nextFiles = Array.from(event.target.files ?? []);
-                                        onChange(mergeUniqueFiles(value ?? [], nextFiles));
-                                        event.target.value = '';
-                                    }}
-                                />
-                            )}
+                    />
+                    <Stack direction={{ xs: 'column', sm: 'row' }} spacing={2} mt={3} alignItems="center">
+                        <Typography variant="subtitle1" fontWeight={500}>
+                            Сбор КП до 23:59
+                        </Typography>
+                        <TextField
+                            type="date"
+                            error={Boolean(errors.deadlineAt)}
+                            helperText={errors.deadlineAt?.message}
+                            inputProps={{ min: todayDate }}
+                            {...register('deadlineAt')}
+                            sx={(theme) => ({
+                                backgroundColor: alpha(theme.palette.primary.main, 0.08),
+                                borderRadius: 999,
+                                '& .MuiOutlinedInput-root': {
+                                    borderRadius: 999,
+                                    backgroundColor: 'transparent'
+                                }
+                            })}
                         />
-                    </Button>
-                    <Stack spacing={0.5}>
-                        {files.length > 0 ? (
-                            <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1 }}>
-                                {files.map((file) => (
-                                    <Chip
-                                        key={getFileKey(file)}
-                                        label={file.name}
-                                        onDelete={() => handleRemoveFile(file)}
-                                        variant="outlined"
-                                        sx={{
-                                            maxWidth: '100%',
-                                            '& .MuiChip-label': {
-                                                overflow: 'hidden',
-                                                textOverflow: 'ellipsis'
-                                            }
+                    </Stack>
+
+                    <Alert severity="info" sx={{ mt: 2, borderRadius: 3 }}>
+                        Карта партнера будет прикреплена к заявке автоматически.
+                    </Alert>
+
+                    <Stack direction={{ xs: 'column', sm: 'row' }} spacing={2} mt={2} alignItems="flex-start">
+                        <Button
+                            variant="outlined"
+                            component="label"
+                            sx={{
+                                borderRadius: 999,
+                                textTransform: 'none',
+                                paddingX: 3,
+                                borderColor: 'primary.main',
+                                color: 'primary.main'
+                            }}
+                        >
+                            <Box component="span" sx={{ marginRight: 1 }}>
+                                🔗
+                            </Box>
+                            Прикрепить файлы
+                            <Controller
+                                control={control}
+                                name="files"
+                                render={({ field: { value, onChange } }) => (
+                                    <input
+                                        type="file"
+                                        hidden
+                                        multiple
+                                        onChange={(event) => {
+                                            const nextFiles = Array.from(event.target.files ?? []);
+                                            onChange(mergeUniqueFiles(value ?? [], nextFiles));
+                                            event.target.value = '';
                                         }}
                                     />
-                                ))}
-                            </Box>
-                        ) : (
-                            <Typography variant="body2">Файлы не выбраны</Typography>
-                        )}
-                        {errors.files ? (
-                            <Typography variant="caption" color="error">
-                                {errors.files.message}
-                            </Typography>
-                        ) : null}
+                                )}
+                            />
+                        </Button>
+                        <Stack spacing={0.5}>
+                            {files.length > 0 ? (
+                                <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1 }}>
+                                    {files.map((file) => (
+                                        <Chip
+                                            key={getFileKey(file)}
+                                            label={file.name}
+                                            onDelete={() => handleRemoveFile(file)}
+                                            variant="outlined"
+                                            sx={{
+                                                maxWidth: '100%',
+                                                '& .MuiChip-label': {
+                                                    overflow: 'hidden',
+                                                    textOverflow: 'ellipsis'
+                                                }
+                                            }}
+                                        />
+                                    ))}
+                                </Box>
+                            ) : (
+                                <Typography variant="body2">Файлы не выбраны</Typography>
+                            )}
+                            {errors.files ? (
+                                <Typography variant="caption" color="error">
+                                    {errors.files.message}
+                                </Typography>
+                            ) : null}
+                        </Stack>
                     </Stack>
-                </Stack>
 
-                <Button
-                    variant="contained"
-                    fullWidth
-                    type="submit"
-                    disabled={isSubmittingRequest}
-                    sx={(theme) => ({
-                        marginTop: 3,
-                        borderRadius: 999,
-                        textTransform: 'none',
-                        borderColor: theme.palette.primary.main,
-                        color: theme.palette.primary.contrastText,
-                        backgroundColor: theme.palette.primary.main,
-                        paddingY: 1.2,
-                        fontSize: 18,
-                        boxShadow: 'none',
-                        '&:hover': {
-                            backgroundColor: theme.palette.primary.dark,
-                            boxShadow: 'none'
-                        }
-                    })}
-                >
-                    {isSubmittingRequest ? 'Создание...' : 'Создать заявку'}
-                </Button>
-                {errorMessage ? (
-                    <Typography mt={2} color="error" textAlign="center">
-                        {errorMessage}
-                    </Typography>
-                ) : null}
-            </Box>
-        </Box>
+
+                    <Button
+                        variant="contained"
+                        fullWidth
+                        type="submit"
+                        disabled={isSubmittingRequest}
+                        sx={(theme) => ({
+                            marginTop: 3,
+                            borderRadius: 999,
+                            textTransform: 'none',
+                            borderColor: theme.palette.primary.main,
+                            color: theme.palette.primary.contrastText,
+                            backgroundColor: theme.palette.primary.main,
+                            paddingY: 1.2,
+                            fontSize: 18,
+                            boxShadow: 'none',
+                            '&:hover': {
+                                backgroundColor: theme.palette.primary.dark,
+                                boxShadow: 'none'
+                            }
+                        })}
+                    >
+                        {isSubmittingRequest ? 'Создание...' : 'Создать заявку'}
+                    </Button>
+                    {errorMessage ? (
+                        <Typography mt={2} color="error" textAlign="center">
+                            {errorMessage}
+                        </Typography>
+                    ) : null}
+                </Box>
+            </DialogContent>
+        </Dialog>
     );
 };
