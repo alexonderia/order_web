@@ -19,6 +19,8 @@ import { getOfferWorkspace } from '@shared/api/getOfferWorkspace';
 import type { OfferWorkspace } from '@shared/api/getOfferWorkspace';
 import { deleteOfferFile, getOfferMessages, sendOfferMessage, uploadOfferFile } from '@shared/api/offerWorkspaceActions';
 import type { OfferWorkspaceMessage } from '@shared/api/offerWorkspaceActions';
+import { getOfferContractorInfo } from '@shared/api/getOfferContractorInfo';
+import type { OfferContractorInfo } from '@shared/api/getOfferContractorInfo';
 import { hasAvailableAction } from '@shared/auth/availableActions';
 
 const statusOptions = [
@@ -58,6 +60,7 @@ export const OfferWorkspacePage = () => {
   const fileInputRef = useRef<HTMLInputElement | null>(null);
 
   const [workspace, setWorkspace] = useState<OfferWorkspace | null>(null);
+  const [contractorInfo, setContractorInfo] = useState<OfferContractorInfo | null>(null);
   const [messages, setMessages] = useState<OfferWorkspaceMessage[]>([]);
   const [message, setMessage] = useState('');
   const [isLoading, setIsLoading] = useState(false);
@@ -77,6 +80,16 @@ export const OfferWorkspacePage = () => {
       const [workspaceResponse, messagesResponse] = await Promise.all([getOfferWorkspace(offerId), getOfferMessages(offerId)]);
       setWorkspace(workspaceResponse);
       setMessages(messagesResponse);
+      if (workspaceResponse.offer.contractor_user_id) {
+        try {
+          const contractor = await getOfferContractorInfo(workspaceResponse.offer.contractor_user_id);
+          setContractorInfo(contractor);
+        } catch {
+          setContractorInfo(null);
+        }
+      } else {
+        setContractorInfo(null);
+      }
     } catch (error) {
       setErrorMessage(error instanceof Error ? error.message : 'Ошибка загрузки workspace оффера');
     } finally {
@@ -121,7 +134,11 @@ export const OfferWorkspacePage = () => {
   const detailsRows = [
     { id: 'created', label: 'Создана', value: formatDate(workspace?.request.created_at ?? null) },
     { id: 'closed', label: 'Закрыта', value: formatDate(workspace?.request.closed_at ?? null) },
-    { id: 'offer', label: 'Номер КП', value: workspace?.offer.offer_id ?? '-' },
+    {
+      id: 'offer',
+      label: 'Номер КП',
+      value: workspace?.request.id_offer ?? workspace?.request.chosen_offer_id ?? '-'
+    },
     { id: 'deadline', label: 'Дедлайн сбора КП', value: formatDate(workspace?.request.deadline_at ?? null) },
     { id: 'updated', label: 'Последнее изменение', value: formatDate(workspace?.request.updated_at ?? null) }
   ];
@@ -136,18 +153,9 @@ export const OfferWorkspacePage = () => {
     setIsUploading(true);
     setErrorMessage(null);
     try {
-      const uploaded = await uploadOfferFile(offerId, file);
-      setWorkspace((prev) =>
-        prev
-          ? {
-              ...prev,
-              offer: {
-                ...prev.offer,
-                files: [...prev.offer.files, uploaded]
-              }
-            }
-          : prev
-      );
+      await uploadOfferFile(offerId, file);
+      const nextWorkspace = await getOfferWorkspace(offerId);
+      setWorkspace(nextWorkspace);
     } catch (error) {
       setErrorMessage(error instanceof Error ? error.message : 'Не удалось загрузить файл');
     } finally {
@@ -163,17 +171,8 @@ export const OfferWorkspacePage = () => {
     setErrorMessage(null);
     try {
       await deleteOfferFile(offerId, fileId);
-      setWorkspace((prev) =>
-        prev
-          ? {
-              ...prev,
-              offer: {
-                ...prev.offer,
-                files: prev.offer.files.filter((item) => item.id !== fileId)
-              }
-            }
-          : prev
-      );
+      const nextWorkspace = await getOfferWorkspace(offerId);
+      setWorkspace(nextWorkspace);
     } catch (error) {
       setErrorMessage(error instanceof Error ? error.message : 'Не удалось удалить файл');
     }
@@ -303,22 +302,22 @@ export const OfferWorkspacePage = () => {
           </Typography>
           <Stack direction={{ xs: 'column', md: 'row' }} spacing={2}>
             <Paper variant="outlined" sx={{ p: 1.5, flex: 1 }}>
-              <Typography variant="body2">ИНН: {workspace.company_contacts?.inn ?? '-'}</Typography>
-              <Typography variant="body2">Наименование компании: {workspace.company_contacts?.company_name ?? '-'}</Typography>
-              <Typography variant="body2">Телефон: {workspace.company_contacts?.phone ?? '-'}</Typography>
-              <Typography variant="body2">E-mail: {workspace.company_contacts?.mail ?? '-'}</Typography>
-              <Typography variant="body2">Адрес: {workspace.company_contacts?.address ?? '-'}</Typography>
+              <Typography variant="body2">ИНН: {contractorInfo?.inn ?? workspace.company_contacts?.inn ?? '-'}</Typography>
+              <Typography variant="body2">Наименование компании: {contractorInfo?.company_name ?? workspace.company_contacts?.company_name ?? '-'}</Typography>
+              <Typography variant="body2">Телефон: {contractorInfo?.company_phone ?? workspace.company_contacts?.phone ?? '-'}</Typography>
+              <Typography variant="body2">E-mail: {contractorInfo?.company_mail ?? workspace.company_contacts?.mail ?? '-'}</Typography>
+              <Typography variant="body2">Адрес: {contractorInfo?.address ?? workspace.company_contacts?.address ?? '-'}</Typography>
             </Paper>
             <Paper variant="outlined" sx={{ p: 1.5, width: { xs: '100%', md: 260 } }}>
               <Typography variant="body2">Дополнительная информация</Typography>
               <Typography variant="body2" color="text.secondary">
-                {workspace.company_contacts?.note ?? '-'}
+                {contractorInfo?.note ?? workspace.company_contacts?.note ?? '-'}
               </Typography>
             </Paper>
             <Paper variant="outlined" sx={{ p: 1.5, width: { xs: '100%', md: 220 } }}>
-              <Typography variant="body2">ФИО: {workspace.profile?.full_name ?? '-'}</Typography>
-              <Typography variant="body2">Телефон: {workspace.profile?.phone ?? '-'}</Typography>
-              <Typography variant="body2">E-mail: {workspace.profile?.mail ?? '-'}</Typography>
+              <Typography variant="body2">ФИО: {contractorInfo?.full_name ?? workspace.profile?.full_name ?? '-'}</Typography>
+              <Typography variant="body2">Телефон: {contractorInfo?.phone ?? workspace.profile?.phone ?? '-'}</Typography>
+              <Typography variant="body2">E-mail: {contractorInfo?.mail ?? workspace.profile?.mail ?? '-'}</Typography>
             </Paper>
           </Stack>
         </Paper>
@@ -391,7 +390,7 @@ export const OfferWorkspacePage = () => {
         <Box sx={{ flex: 1, borderRadius: 5, backgroundColor: 'rgba(16, 63, 133, 0.04)', p: 2, overflowY: 'auto' }}>
           <Stack spacing={2} alignItems="stretch">
             {messages.map((item) => {
-              const ownMessage = item.id_user === session?.login;
+              const ownMessage = item.user_id === session?.login;
               return (
                 <Box
                   key={item.id}

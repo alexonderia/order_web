@@ -6,6 +6,8 @@ import { CreateRequestPage } from '@pages/CreateRequestPage';
 import { RequestDetailsPage } from '@pages/RequestDetailsPage';
 import { RequestsPage } from '@pages/RequestsPage';
 import { TgRegisterPage } from '@pages/TgRegisterPage';
+import { ContractorRequestDetailsPage } from '@pages/ContractorRequestDetailsPage';
+import { OfferWorkspacePage } from '@pages/OfferWorkspacePage';
 import { AppLayout } from '@app/layouts/AppLayout';
 import { ProtectedRoute } from '@app/routes/ProtectedRoute';
 import { RoleRoute } from '@app/routes/RoleRoute';
@@ -29,6 +31,8 @@ export const App = () => {
             <Route path="/requests" element={<RequestsPage />} />
             <Route path="/requests/create" element={<CreateRequestPage />} />
             <Route path="/requests/:id" element={<RequestDetailsPage />} />
+            <Route path="/requests/:id/contractor" element={<ContractorRequestDetailsPage />} />
+            <Route path="/offers/:id/workspace" element={<OfferWorkspacePage />} />
             <Route
               path="/admin"
               element={

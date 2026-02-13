@@ -69,8 +69,8 @@ export const ContractorRequestDetailsPage = () => {
         if (!isMounted) {
           return;
         }
-        if (response.existing_offer_id) {
-          navigate(`/offers/${response.existing_offer_id}/workspace`, { replace: true });
+        if (response.existing_offer) {
+          navigate(`/offers/${response.existing_offer.offer_id}/workspace`, { replace: true });
           return;
         }
         setRequest(response);
@@ -102,11 +102,10 @@ export const ContractorRequestDetailsPage = () => {
   );
 
   const detailsRows = [
-    { id: 'created', label: 'Создана', value: formatDate(request?.created_at ?? null) },
-    { id: 'closed', label: 'Закрыта', value: formatDate(request?.closed_at ?? null) },
+    { id: 'status', label: 'Статус', value: request?.status_label ?? '-' },
     { id: 'offer', label: 'Номер КП', value: '-' },
     { id: 'deadline', label: 'Дедлайн сбора КП', value: formatDate(request?.deadline_at ?? null) },
-    { id: 'updated', label: 'Последнее изменение', value: formatDate(request?.updated_at ?? null) }
+    { id: 'owner', label: 'Ответственный', value: request?.owner_user_id ?? '-' }
   ];
 
   const handleRespond = async () => {

@@ -82,6 +82,13 @@ export const RequestsPage = () => {
     useEffect(() => {
         let isMounted = true;
         const loadChatAlerts = async () => {
+            if (canLoadOnlyOpenRequests) {
+                if (isMounted) {
+                    setChatAlertsMap({});
+                }
+                return;
+            }
+            
             if (requests.length === 0) {
                 if (isMounted) {
                     setChatAlertsMap({});
@@ -112,7 +119,7 @@ export const RequestsPage = () => {
         return () => {
             isMounted = false;
         };
-    }, [requests, userLogin]);
+    }, [canLoadOnlyOpenRequests, requests, userLogin]);
 
     const handleOwnerChange = async (request: RequestWithOfferStats, ownerUserId: string) => {
         if (!canEditOwner || ownerUserId === request.id_user) {
@@ -161,7 +168,12 @@ export const RequestsPage = () => {
             <RequestsTable
                 requests={requests}
                 isLoading={isLoading}
-                onRowClick={(request) => navigate(`/requests/${request.id}`, { state: { request } })}
+                onRowClick={(request) =>
+                    navigate(
+                        canLoadOnlyOpenRequests ? `/requests/${request.id}/contractor` : `/requests/${request.id}`,
+                        canLoadOnlyOpenRequests ? undefined : { state: { request } }
+                    )
+                }
                 chatAlertsMap={chatAlertsMap}
                 ownerOptions={ownerOptions}
                 canEditOwner={canEditOwner}
