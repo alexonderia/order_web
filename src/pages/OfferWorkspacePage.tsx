@@ -11,7 +11,7 @@ import {
   TextField,
   Typography
 } from '@mui/material';
-import { useParams } from 'react-router-dom';
+import { useNavigate, useParams } from 'react-router-dom';
 import { useAuth } from '@app/providers/AuthProvider';
 import { DataTable } from '@shared/components/DataTable';
 import { downloadFile } from '@shared/api/fileDownload';
@@ -55,7 +55,8 @@ const formatDate = (value: string | null, withTime = false) => {
 
 export const OfferWorkspacePage = () => {
   const { id } = useParams<{ id: string }>();
-  const { session } = useAuth();
+  const { session, logout } = useAuth();
+  const navigate = useNavigate();
   const offerId = Number(id ?? 0);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
 
@@ -67,6 +68,7 @@ export const OfferWorkspacePage = () => {
   const [isSending, setIsSending] = useState(false);
   const [isUploading, setIsUploading] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const [isChatOpen, setIsChatOpen] = useState(true);
 
   const loadWorkspace = useCallback(async () => {
     if (!Number.isFinite(offerId) || offerId <= 0) {
@@ -139,6 +141,11 @@ export const OfferWorkspacePage = () => {
       label: 'Номер КП',
       value: workspace?.request.id_offer ?? workspace?.request.chosen_offer_id ?? '-'
     },
+    {
+      id: 'owner',
+      label: 'Ответственный',
+      value: workspace?.request.owner_user_id ?? '-'
+    },
     { id: 'deadline', label: 'Дедлайн сбора КП', value: formatDate(workspace?.request.deadline_at ?? null) },
     { id: 'updated', label: 'Последнее изменение', value: formatDate(workspace?.request.updated_at ?? null) }
   ];
@@ -207,13 +214,32 @@ export const OfferWorkspacePage = () => {
   }
 
   return (
-    <Stack direction={{ xs: 'column', lg: 'row' }} spacing={0} sx={{ borderRadius: 3, overflow: 'hidden' }}>
+    <Stack
+      direction={{ xs: 'column', lg: 'row' }}
+      sx={{ minHeight: { lg: 'calc(100vh - 130px)' }, alignItems: 'stretch' }}
+    >
       <Box sx={{ flex: 1, p: 2.5, backgroundColor: 'rgba(16, 63, 133, 0.06)' }}>
         {errorMessage ? (
           <Typography color="error" sx={{ mb: 2 }}>
             {errorMessage}
           </Typography>
         ) : null}
+
+        <Stack direction="row" justifyContent="space-between" spacing={2} alignItems="center" sx={{ mb: 2 }}>
+          <Button
+            variant="outlined"
+            sx={{ px: 4, borderColor: 'primary.main', color: 'primary.main', whiteSpace: 'nowrap' }}
+            onClick={() => navigate('/requests')}
+          >
+            К списку заявок
+          </Button>
+          <Stack direction="row" spacing={2} alignItems="center">
+            <Typography variant="h6">профиль</Typography>
+            <Button variant="outlined" onClick={logout}>
+              Выйти
+            </Button>
+          </Stack>
+        </Stack>
 
         <Stack direction="row" spacing={2} alignItems="center" flexWrap="wrap" sx={{ mb: 2 }}>
           <Typography variant="h6" fontWeight={600} sx={{ whiteSpace: 'nowrap' }}>
@@ -273,6 +299,7 @@ export const OfferWorkspacePage = () => {
                       key={file.id}
                       label={file.name}
                       variant="outlined"
+                      sx={{ borderRadius: 999, backgroundColor: '#fff' }}
                       onClick={() => void downloadFile(file.download_url, file.name)}
                     />
                   ))}
@@ -332,30 +359,17 @@ export const OfferWorkspacePage = () => {
             <Typography variant="body2">Последнее изменение: {formatDate(workspace.offer.updated_at)}</Typography>
           </Stack>
 
-          <Stack spacing={1}>
+          <Stack direction="row" flexWrap="wrap" gap={1}>
             {workspace.offer.files.length === 0 ? (
               <Typography color="text.secondary">Файлы оффера не прикреплены.</Typography>
             ) : (
               workspace.offer.files.map((file) => (
-                <Stack
-                  key={file.id}
-                  direction="row"
-                  alignItems="center"
-                  justifyContent="space-between"
-                  sx={{ border: '1px solid', borderColor: 'divider', borderRadius: 1, px: 1, py: 0.7 }}
-                >
-                  <Typography variant="body2">{file.name}</Typography>
-                  <Stack direction="row" spacing={1}>
-                    {canDeleteFile ? (
-                      <Button size="small" color="inherit" onClick={() => void handleDeleteFile(file.id)}>
-                        Удалить
-                      </Button>
-                    ) : null}
-                    <Button size="small" onClick={() => void downloadFile(file.download_url, file.name)}>
-                      Скачать
-                    </Button>
-                  </Stack>
-                </Stack>
+                <Chip
+                  label={file.name}
+                  variant="outlined"
+                  onClick={() => void downloadFile(file.download_url, file.name)}
+                  onDelete={canDeleteFile ? () => void handleDeleteFile(file.id) : undefined}
+                />
               ))
             )}
           </Stack>
@@ -371,69 +385,78 @@ export const OfferWorkspacePage = () => {
 
       <Paper
         sx={{
-          width: { xs: '100%', lg: 430 },
+          width: { xs: '100%', lg: isChatOpen ? 430 : 72 },
           borderRadius: 0,
           borderLeft: { lg: '1px solid #d6dbe4' },
-          p: 2,
+          p: isChatOpen ? 2 : 1,
           display: 'flex',
           flexDirection: 'column',
-          minHeight: 760
+          minHeight: { xs: 420, lg: 'auto' },
+          transition: 'width 0.2s ease'
         }}
       >
-        <Stack direction="row" justifyContent="space-between" alignItems="center" sx={{ mb: 1 }}>
-          <Typography variant="h5" sx={{ fontWeight: 600 }}>
-            Чат по офферу №{workspace.offer.offer_id}
-          </Typography>
-          <Typography variant="h5">×</Typography>
+        <Stack direction="row" justifyContent="space-between" alignItems="center" sx={{ mb: isChatOpen ? 1 : 0 }}>
+          {isChatOpen ? (
+            <Typography variant="h5" sx={{ fontWeight: 600 }}>
+              Чат по офферу №{workspace.offer.offer_id}
+            </Typography>
+          ) : null}
+          <Button variant="text" size="small" onClick={() => setIsChatOpen((prev) => !prev)}>
+            {isChatOpen ? 'Скрыть' : 'Чат'}
+          </Button>
         </Stack>
 
-        <Box sx={{ flex: 1, borderRadius: 5, backgroundColor: 'rgba(16, 63, 133, 0.04)', p: 2, overflowY: 'auto' }}>
-          <Stack spacing={2} alignItems="stretch">
-            {messages.map((item) => {
-              const ownMessage = item.user_id === session?.login;
-              return (
-                <Box
-                  key={item.id}
-                  sx={{
-                    alignSelf: ownMessage ? 'flex-end' : 'flex-start',
-                    maxWidth: '85%',
-                    borderRadius: 5,
-                    px: 2,
-                    py: 1.5,
-                    backgroundColor: '#fff'
-                  }}
-                >
-                  <Typography variant="body2" color="text.secondary" sx={{ textAlign: 'right' }}>
-                    {ownMessage ? 'Контрагент' : 'Экономист'}
-                  </Typography>
-                  <Typography variant="body1">{item.text}</Typography>
-                  <Typography variant="body2" color="text.secondary" sx={{ textAlign: 'right' }}>
-                    {formatDate(item.created_at, true)}
-                  </Typography>
-                </Box>
-              );
-            })}
-          </Stack>
-        </Box>
+        {isChatOpen ? (
+          <>
+            <Box sx={{ flex: 1, borderRadius: 5, backgroundColor: 'rgba(16, 63, 133, 0.04)', p: 2, overflowY: 'auto' }}>
+              <Stack spacing={2} alignItems="stretch">
+                {messages.map((item) => {
+                  const ownMessage = item.user_id === session?.login;
+                  return (
+                    <Box
+                      key={item.id}
+                      sx={{
+                        alignSelf: ownMessage ? 'flex-end' : 'flex-start',
+                        maxWidth: '85%',
+                        borderRadius: 5,
+                        px: 2,
+                        py: 1.5,
+                        backgroundColor: '#fff'
+                      }}
+                    >
+                      <Typography variant="body2" color="text.secondary" sx={{ textAlign: 'right' }}>
+                        {ownMessage ? 'Контрагент' : 'Экономист'}
+                      </Typography>
+                      <Typography variant="body1">{item.text}</Typography>
+                      <Typography variant="body2" color="text.secondary" sx={{ textAlign: 'right' }}>
+                        {formatDate(item.created_at, true)}
+                      </Typography>
+                    </Box>
+                  );
+                })}
+              </Stack>
+            </Box>
 
-        <TextField
-          sx={{ mt: 2 }}
-          value={message}
-          onChange={(event) => setMessage(event.target.value)}
-          placeholder="Введите комментарий"
-          multiline
-          minRows={3}
-          disabled={!canSendMessage || isSending}
-        />
+            <TextField
+              sx={{ mt: 2 }}
+              value={message}
+              onChange={(event) => setMessage(event.target.value)}
+              placeholder="Введите комментарий"
+              multiline
+              minRows={3}
+              disabled={!canSendMessage || isSending}
+            />
 
-        <Button
-          sx={{ mt: 2, alignSelf: 'flex-end', minWidth: 140 }}
-          variant="contained"
-          disabled={!canSendMessage || isSending || !message.trim()}
-          onClick={() => void handleSendMessage()}
-        >
-          {isSending ? 'Отправляем...' : 'Отправить'}
-        </Button>
+            <Button
+              sx={{ mt: 2, alignSelf: 'flex-end', minWidth: 140 }}
+              variant="contained"
+              disabled={!canSendMessage || isSending || !message.trim()}
+              onClick={() => void handleSendMessage()}
+            >
+              {isSending ? 'Отправляем...' : 'Отправить'}
+            </Button>
+          </>
+        ) : null}
       </Paper>
     </Stack>
   );

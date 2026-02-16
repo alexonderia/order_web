@@ -29,8 +29,9 @@ export const AppLayout = () => {
   const isSuperadmin = roleId === 1;
   const isRequestsListPage = location.pathname === '/requests';
   const isRequestDetailsPage = /^\/requests\/\d+$/.test(location.pathname);
+  const isOfferWorkspacePage = /^\/offers\/\d+\/workspace$/.test(location.pathname);
   const canCreateRequest = hasAvailableAction(session, '/api/v1/requests', 'POST');
-  
+
   const sidebarButtons = (
     <Stack spacing={1.8}>
       {superadminItems.map((item) => {
@@ -113,33 +114,35 @@ export const AppLayout = () => {
 
   return (
     <Box sx={{ minHeight: '100vh', backgroundColor: 'background.default', p: { xs: 1.5, md: 2.5 } }}>
-      <Stack component="header" direction="row" alignItems="center" justifyContent="space-between" sx={{ mb: 2 }}>
-        {isRequestDetailsPage ? (
-          <Button
-            variant="outlined"
-            sx={{ px: 4, borderColor: 'primary.main', color: 'primary.main', whiteSpace: 'nowrap' }}
-            onClick={() => navigate('/requests')}
-          >
-            К списку заявок
-          </Button>
-        ) : isRequestsListPage && canCreateRequest ? (
-          <Button
-            variant="contained"
-            sx={{ px: 3, boxShadow: 'none', '&:hover': { boxShadow: 'none' } }}
-            onClick={() => navigate('/requests/create', { state: { backgroundLocation: location } })}
-          >
-            Создать заявку
-          </Button>
-        ) : (
-          <Box />
-        )}
-        <Stack direction="row" spacing={3} alignItems="center">
-          <Typography variant="h6">профиль</Typography>
-          <Button variant="outlined" onClick={logout}>
-            Выйти
-          </Button>
+      {isOfferWorkspacePage ? null : (
+        <Stack component="header" direction="row" alignItems="center" justifyContent="space-between" sx={{ mb: 2 }}>
+          {isRequestDetailsPage ? (
+            <Button
+              variant="outlined"
+              sx={{ px: 4, borderColor: 'primary.main', color: 'primary.main', whiteSpace: 'nowrap' }}
+              onClick={() => navigate('/requests')}
+            >
+              К списку заявок
+            </Button>
+          ) : isRequestsListPage && canCreateRequest ? (
+            <Button
+              variant="contained"
+              sx={{ px: 3, boxShadow: 'none', '&:hover': { boxShadow: 'none' } }}
+              onClick={() => navigate('/requests/create', { state: { backgroundLocation: location } })}
+            >
+              Создать заявку
+            </Button>
+          ) : (
+            <Box />
+          )}
+          <Stack direction="row" spacing={3} alignItems="center">
+            <Typography variant="h6">профиль</Typography>
+            <Button variant="outlined" onClick={logout}>
+              Выйти
+            </Button>
+          </Stack>
         </Stack>
-      </Stack>
+      )}
 
       <Box component="main">
         <Outlet />

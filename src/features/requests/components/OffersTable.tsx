@@ -1,5 +1,5 @@
 import type { ReactNode } from 'react';
-import { Box, Button, MenuItem, Select, Stack, SvgIcon, Typography } from '@mui/material';
+import { Box, Button, Chip, MenuItem, Select, Stack, SvgIcon, Tooltip, Typography } from '@mui/material';
 import { useTheme } from '@mui/material/styles';
 import type { RequestDetailsOffer } from '@shared/api/getRequestDetails';
 import { DataTable } from '@shared/components/DataTable';
@@ -55,6 +55,14 @@ const formatDate = (value: string | null) => {
         month: '2-digit',
         year: 'numeric'
     }).format(date);
+};
+
+const getFileLabelWithHint = (value: string, max = 18) => {
+    if (value.length <= max) {
+        return value;
+    }
+
+    return `${value.slice(0, max - 1)}…`;
 };
 
 const getContactInfo = (offer: RequestDetailsOffer) => {
@@ -189,17 +197,27 @@ export const OffersTable = ({
                     <Typography variant="body2">{formatDate(offer.created_at)}</Typography>,
                     <Typography variant="body2">{formatDate(offer.updated_at)}</Typography>,
                     offer.files.length > 0 ? (
-                        <Stack spacing={0.5}>
+                        <Stack direction="row" flexWrap="wrap" gap={0.7}>
                             {offer.files.map((file) => (
-                                <Button
-                                    key={file.id}
-                                    size="small"
-                                    variant="text"
-                                    onClick={() => onDownloadFile(file.download_url, file.name)}
-                                    sx={{ p: 0, textTransform: 'none', justifyContent: 'flex-start', minWidth: 0 }}
-                                >
-                                    Скачать {offer.files.length > 1 ? file.name : ''}
-                                </Button>
+                                <Tooltip key={file.id} title={file.name} arrow>
+                                    <Chip
+                                        label={getFileLabelWithHint(file.name)}
+                                        variant="outlined"
+                                        size="small"
+                                        sx={{
+                                            borderRadius: 999,
+                                            backgroundColor: '#fff',
+                                            cursor: 'pointer',
+                                            maxWidth: 180,
+                                            '& .MuiChip-label': {
+                                                overflow: 'hidden',
+                                                textOverflow: 'ellipsis',
+                                                whiteSpace: 'nowrap'
+                                            }
+                                        }}
+                                        onClick={() => onDownloadFile(file.download_url, file.name)}
+                                    />
+                                </Tooltip>
                             ))}
                         </Stack>
                     ) : (

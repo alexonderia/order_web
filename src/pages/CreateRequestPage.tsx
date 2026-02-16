@@ -219,6 +219,12 @@ export const CreateRequestPage = () => {
                                                 '& .MuiChip-label': {
                                                     overflow: 'hidden',
                                                     textOverflow: 'ellipsis'
+                                                },
+                                                '& .MuiChip-deleteIcon': {
+                                                    color: '#5d6675',
+                                                    backgroundColor: '#d8dde6',
+                                                    borderRadius: '50%',
+                                                    p: '1px'
                                                 }
                                             }}
                                         />

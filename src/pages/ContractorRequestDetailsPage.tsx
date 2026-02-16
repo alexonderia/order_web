@@ -207,6 +207,7 @@ export const ContractorRequestDetailsPage = () => {
                     key={file.id}
                     label={file.name}
                     variant="outlined"
+                    sx={{ borderRadius: 999, backgroundColor: '#fff' }}
                     onClick={() => void downloadFile(file.download_url, file.name)}
                   />
                 ))}
