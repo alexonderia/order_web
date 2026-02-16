@@ -1,3 +1,5 @@
+import React from 'react';
+
 import { zodResolver } from '@hookform/resolvers/zod';
 import { alpha } from '@mui/material/styles';
 import {
@@ -27,48 +29,83 @@ const getFileKey = (file: File) => `${file.name}-${file.size}-${file.lastModifie
 
 const mergeUniqueFiles = (currentFiles: File[], addedFiles: File[]) => {
   const fileMap = new Map<string, File>();
-
-  [...currentFiles, ...addedFiles].forEach((file) => {
-    fileMap.set(getFileKey(file), file);
-  });
-
+  [...currentFiles, ...addedFiles].forEach((file) => fileMap.set(getFileKey(file), file));
   return Array.from(fileMap.values());
 };
 
 const formatTime = (value: string | null) => {
-  if (!value) {
-    return '--:--';
-  }
+  if (!value) return '--:--';
 
   const date = new Date(value);
-  if (Number.isNaN(date.getTime())) {
-    return value;
-  }
+  if (Number.isNaN(date.getTime())) return value;
+
+  return new Intl.DateTimeFormat('ru-RU', { hour: '2-digit', minute: '2-digit' }).format(date);
+};
+
+const startOfDay = (d: Date) => new Date(d.getFullYear(), d.getMonth(), d.getDate());
+
+const isSameDay = (a: Date, b: Date) =>
+  a.getFullYear() === b.getFullYear() && a.getMonth() === b.getMonth() && a.getDate() === b.getDate();
+
+const formatDayLabel = (iso: string | null) => {
+  if (!iso) return 'Без даты';
+
+  const d = new Date(iso);
+  if (Number.isNaN(d.getTime())) return 'Без даты';
+
+  const today = startOfDay(new Date());
+  const msgDay = startOfDay(d);
+
+  const diffDays = Math.round((today.getTime() - msgDay.getTime()) / 86400000);
+
+  if (diffDays === 0) return 'Сегодня';
+  if (diffDays === 1) return 'Вчера';
 
   return new Intl.DateTimeFormat('ru-RU', {
-    hour: '2-digit',
-    minute: '2-digit'
-  }).format(date);
+    day: 'numeric',
+    month: 'long',
+    year: 'numeric'
+  }).format(d);
 };
 
 const MessageStatusIcon = ({ status }: { status: OfferWorkspaceMessage['status'] }) => {
-  if (status === 'send') {
-    return (
-      <SvgIcon sx={{ fontSize: 16, color: 'text.secondary', opacity: 0.9 }}>
-        <path d="M1.73 12.91 0.32 11.5l5.2-5.2 1.41 1.41z" />
-      </SvgIcon>
-    );
-  }
+  const isDouble = status === 'received' || status === 'read';
+  const isRead = status === 'read';
 
-  const color = status === 'read' ? 'primary.main' : 'text.secondary';
+  const color = isRead ? 'primary.main' : 'text.secondary';
+
   return (
-    <Box sx={{ display: 'inline-flex', alignItems: 'center', position: 'relative', width: 16, height: 16 }}>
-      <SvgIcon sx={{ fontSize: 16, color, opacity: status === 'read' ? 1 : 0.8, position: 'absolute', left: -3 }}>
-        <path d="M1.73 12.91 0.32 11.5l5.2-5.2 1.41 1.41z" />
-      </SvgIcon>
-      <SvgIcon sx={{ fontSize: 16, color, opacity: status === 'read' ? 1 : 0.8, position: 'absolute', left: 3 }}>
-        <path d="M1.73 12.91 0.32 11.5l5.2-5.2 1.41 1.41z" />
-      </SvgIcon>
+    <Box
+      component="span"
+      sx={{
+        display: 'inline-flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        ml: 0.5,
+        color,
+        opacity: status === 'send' ? 0.85 : 1
+      }}
+      aria-label={`message-status-${status}`}
+    >
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" style={{ display: 'block' }}>
+        <path
+          d="M6.6 12.6l3.1 3.1 7.7-7.7"
+          stroke="currentColor"
+          strokeWidth="2.2"
+          strokeLinecap="round"
+          strokeLinejoin="round"
+        />
+        {isDouble ? (
+          <path
+            d="M10.2 12.6l3.1 3.1 7.7-7.7"
+            stroke="currentColor"
+            strokeWidth="2.2"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            opacity="0.95"
+          />
+        ) : null}
+      </svg>
     </Box>
   );
 };
@@ -110,33 +147,28 @@ export const OfferWorkspaceChatPanel = ({
     formState: { errors }
   } = useForm<ChatFormValues>({
     resolver: zodResolver(chatSchema),
-    defaultValues: {
-      text: '',
-      files: []
-    }
+    defaultValues: { text: '', files: [] }
   });
 
   const attachedFiles = watch('files');
   const messageText = watch('text');
 
+  const sortedMessages = React.useMemo(() => {
+    return [...messages].sort(
+      (a, b) => new Date(a.created_at ?? 0).getTime() - new Date(b.created_at ?? 0).getTime()
+    );
+  }, [messages]);
+
   const handleRemoveAttachedFile = (fileToRemove: File) => {
     const nextFiles = attachedFiles.filter((file) => getFileKey(file) !== getFileKey(fileToRemove));
-    setValue('files', nextFiles, {
-      shouldDirty: true,
-      shouldTouch: true,
-      shouldValidate: true
-    });
+    setValue('files', nextFiles, { shouldDirty: true, shouldTouch: true, shouldValidate: true });
   };
 
   const onSubmitMessage = async (values: ChatFormValues) => {
-    if (!canSendMessage) {
-      return;
-    }
+    if (!canSendMessage) return;
 
     const trimmedText = values.text.trim();
-    if (!trimmedText) {
-      return;
-    }
+    if (!trimmedText) return;
 
     await onSendMessage(trimmedText, values.files);
     reset({ text: '', files: [] });
@@ -170,7 +202,7 @@ export const OfferWorkspaceChatPanel = ({
           </Box>
           <Divider />
 
-          <Stack spacing={2} sx={{ p: 2, height: '100%' }}>
+          <Stack spacing={1} sx={{ p: 2, height: '100%' }}>
             <Box
               sx={{
                 flex: 1,
@@ -180,61 +212,144 @@ export const OfferWorkspaceChatPanel = ({
                 p: 2
               }}
             >
-              {messages.length === 0 ? (
+              {sortedMessages.length === 0 ? (
                 <Typography variant="body2" color="text.secondary">
                   Сообщений пока нет.
                 </Typography>
               ) : (
-                <Stack spacing={2} alignItems="stretch">
-                  {messages.map((item) => {
+                <Stack spacing={0} alignItems="stretch">
+                  {sortedMessages.map((item, idx) => {
                     const ownMessage = item.user_id === sessionLogin;
+
+                    const prev = idx > 0 ? sortedMessages[idx - 1] : null;
+
+                    const showDateDivider = !prev
+                      ? true
+                      : (() => {
+                          const a = new Date(prev.created_at ?? '');
+                          const b = new Date(item.created_at ?? '');
+                          if (Number.isNaN(a.getTime()) || Number.isNaN(b.getTime())) return false;
+                          return !isSameDay(a, b);
+                        })();
+
+                    const isGroupedWithPrev = Boolean(
+                      prev &&
+                        prev.user_id === item.user_id &&
+                        isSameDay(new Date(prev.created_at ?? ''), new Date(item.created_at ?? ''))
+                    );
+
                     return (
-                      <Box
-                        key={item.id}
-                        sx={(theme) => ({
-                          backgroundColor: ownMessage ? alpha(theme.palette.primary.main, 0.14) : theme.palette.background.paper,
-                          color: theme.palette.text.primary,
-                          border: `1px solid ${ownMessage ? alpha(theme.palette.primary.main, 0.35) : theme.palette.divider}`,
-                          borderRadius: 2.5,
-                          px: 1.6,
-                          py: 1,
-                          alignSelf: ownMessage ? 'flex-end' : 'flex-start',
-                          textAlign: 'left',
-                          maxWidth: '82%',
-                          minWidth: 140,
-                          boxShadow: ownMessage ? `0 2px 8px ${alpha(theme.palette.primary.main, 0.14)}` : '0 1px 4px rgba(0,0,0,0.06)'
-                        })}
-                      >
-                        <Typography variant="body1" sx={{ mb: item.attachments.length > 0 ? 0.8 : 0.35, lineHeight: 1.32 }}>
-                          {item.text}
-                        </Typography>
-                        {item.attachments.length > 0 ? (
-                          <Stack spacing={0.5} sx={{ mb: 0.75 }}>
-                            {item.attachments.map((attachment) => (
-                              <Chip
-                                key={attachment.id}
-                                size="small"
-                                label={attachment.name}
-                                variant="outlined"
-                                onClick={() => onDownloadAttachment(attachment.download_url, attachment.name)}
-                                sx={(theme) => ({
-                                  alignSelf: ownMessage ? 'flex-end' : 'flex-start',
-                                  borderColor: ownMessage ? alpha(theme.palette.primary.main, 0.45) : theme.palette.divider,
-                                  color: theme.palette.text.primary,
-                                  backgroundColor: ownMessage ? alpha(theme.palette.primary.main, 0.06) : theme.palette.background.default,
-                                  '& .MuiChip-label': {
-                                    color: 'inherit'
-                                  }
-                                })}
-                              />
-                            ))}
-                          </Stack>
+                      <Box key={item.id}>
+                        {showDateDivider ? (
+                          <Box sx={{ display: 'flex', justifyContent: 'center', my: 1 }}>
+                            <Box
+                              sx={(theme) => ({
+                                px: 1.5,
+                                py: 0.5,
+                                borderRadius: 999,
+                                fontSize: 12,
+                                fontWeight: 600,
+                                color: theme.palette.text.secondary,
+                                backgroundColor: alpha(theme.palette.common.white, 0.75),
+                                border: `1px solid ${alpha(theme.palette.divider, 0.6)}`,
+                                boxShadow: '0 1px 2px rgba(0,0,0,0.04)'
+                              })}
+                            >
+                              {formatDayLabel(item.created_at)}
+                            </Box>
+                          </Box>
                         ) : null}
-                        <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: 0.7, mt: 0.2 }}>
-                          <Typography variant="caption" sx={{ color: 'text.secondary' }}>
-                            {formatTime(item.created_at)}
-                          </Typography>
-                          {ownMessage ? <MessageStatusIcon status={item.status} /> : null}
+
+                        <Box
+                          sx={{
+                            display: 'flex',
+                            justifyContent: ownMessage ? 'flex-end' : 'flex-start',
+                            mt: showDateDivider ? 0.9 : isGroupedWithPrev ? 0.25 : 0.9
+                          }}
+                        >
+                          <Box
+                            sx={(theme) => {
+                              const R = 18;
+                              const CUT = 6;
+                              const top = isGroupedWithPrev ? 10 : R;
+
+                              return {
+                                maxWidth: '82%',
+                                px: 1.6,
+                                py: 1.1,
+
+                                borderRadius: `${R}px`,
+                                borderTopLeftRadius: ownMessage ? `${top}px` : `${CUT}px`,
+                                borderTopRightRadius: ownMessage ? `${CUT}px` : `${top}px`,
+                                borderBottomLeftRadius: `${R}px`,
+                                borderBottomRightRadius: `${R}px`,
+
+                                backgroundColor: ownMessage ? '#8f4aa6' : theme.palette.background.paper,
+                                color: ownMessage ? 'rgba(255,255,255,0.96)' : theme.palette.text.primary,
+
+                                boxShadow: ownMessage
+                                  ? `0 6px 18px ${alpha(theme.palette.primary.main, 0.18)}`
+                                  : '0 1px 4px rgba(0,0,0,0.06)',
+
+                                overflowWrap: 'anywhere'
+                              };
+                            }}
+                          >
+                            <Typography
+                              variant="body1"
+                              sx={{
+                                mb: item.attachments.length > 0 ? 0.8 : 0.4,
+                                lineHeight: 1.32,
+                                whiteSpace: 'pre-wrap'
+                              }}
+                            >
+                              {item.text}
+                            </Typography>
+
+                            {item.attachments.length > 0 ? (
+                              <Stack spacing={0.5} sx={{ mb: 0.75 }}>
+                                {item.attachments.map((attachment) => (
+                                  <Chip
+                                    key={attachment.id}
+                                    size="small"
+                                    label={attachment.name}
+                                    variant="outlined"
+                                    onClick={() => onDownloadAttachment(attachment.download_url, attachment.name)}
+                                    sx={(theme) => ({
+                                      alignSelf: ownMessage ? 'flex-end' : 'flex-start',
+                                      borderColor: ownMessage ? alpha('#ffffff', 0.35) : theme.palette.divider,
+                                      color: ownMessage ? 'rgba(255,255,255,0.92)' : theme.palette.text.primary,
+                                      backgroundColor: ownMessage ? alpha('#000', 0.12) : theme.palette.background.default,
+                                      '& .MuiChip-label': { color: 'inherit' }
+                                    })}
+                                  />
+                                ))}
+                              </Stack>
+                            ) : null}
+
+                            <Box
+                              sx={{
+                                display: 'flex',
+                                justifyContent: 'flex-end',
+                                alignItems: 'center',
+                                gap: 0.6,
+                                mt: 0.2
+                              }}
+                            >
+                              <Typography
+                                variant="caption"
+                                sx={{
+                                  fontSize: 12,
+                                  lineHeight: 1,
+                                  color: ownMessage ? alpha('#fff', 0.82) : 'text.secondary'
+                                }}
+                              >
+                                {formatTime(item.created_at)}
+                              </Typography>
+
+                              {ownMessage ? <MessageStatusIcon status={item.status} /> : null}
+                            </Box>
+                          </Box>
                         </Box>
                       </Box>
                     );
@@ -258,7 +373,12 @@ export const OfferWorkspaceChatPanel = ({
 
               <Stack direction="row" flexWrap="wrap" gap={1} sx={{ mt: 1 }}>
                 {attachedFiles.map((file) => (
-                  <Chip key={getFileKey(file)} label={file.name} size="small" onDelete={() => handleRemoveAttachedFile(file)} />
+                  <Chip
+                    key={getFileKey(file)}
+                    label={file.name}
+                    size="small"
+                    onDelete={() => handleRemoveAttachedFile(file)}
+                  />
                 ))}
               </Stack>
 
