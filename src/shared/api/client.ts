@@ -1,6 +1,4 @@
-export const apiConfig = {
-  baseUrl: ""
-};type UnauthorizedHandler = () => void;
+type UnauthorizedHandler = () => void;
 
 let authToken: string | null = null;
 let unauthorizedHandler: UnauthorizedHandler | null = null;

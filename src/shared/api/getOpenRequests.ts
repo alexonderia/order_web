@@ -1,5 +1,6 @@
 import { fetchJson } from './client';
-import type { GetRequestsResponse, RequestWithOfferStats } from './getRequests';
+import type { GetRequestsResponse } from './getRequests';
+import type { FileEntity } from '@shared/types/domain';
 
 type ApiResponse = {
   data: {
@@ -14,7 +15,7 @@ type ApiResponse = {
       closed_at: string | null;
       owner_user_id: string;
       chosen_offer_id: number | null;
-      files: RequestWithOfferStats['files'];
+      files: FileEntity[];
     }>;
   };
 };

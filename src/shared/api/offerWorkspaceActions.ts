@@ -1,19 +1,11 @@
 import { fetchEmpty, fetchJson } from './client';
 import type { AuthLink } from './loginWebUser';
+import { resolveAvailableActions } from './mappers';
+import type { FileEntity, OfferMessageEntity } from '@shared/types/domain';
 
-export type OfferMessageAttachment = {
-  id: number;
-  name: string;
-  download_url: string;
-};
+export type OfferMessageAttachment = Pick<FileEntity, 'id' | 'name' | 'download_url'>;
 
-export type OfferWorkspaceMessage = {
-  id: number;
-  user_id: string;
-  text: string;
-  created_at: string;
-  updated_at: string;
-  status: 'send' | 'received' | 'read';
+export type OfferWorkspaceMessage = OfferMessageEntity & {
   attachments: OfferMessageAttachment[];
 };
 
@@ -60,11 +52,8 @@ type MessageStatusResponse = {
   };
 };
 
-const resolveAvailableActions = (response: MessagesResponse) =>
-  response._links?.available_action ?? response._links?.available_actions ?? response._links?.availableActions ?? [];
-
 export const getOfferMessages = async (offerId: number): Promise<OfferMessagesResult> => {
-    const response = await fetchJson<MessagesResponse>(
+  const response = await fetchJson<MessagesResponse>(
     `/api/v1/offers/${offerId}/messages`,
     { method: 'GET' },
     'Ошибка загрузки сообщений'

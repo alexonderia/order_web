@@ -1,6 +1,7 @@
 import { fetchJson } from './client';
 import type { AuthLink } from './loginWebUser';
 import type { ContractorRequestViewFile } from './getContractorRequestView';
+import { resolveAvailableActions } from './mappers';
 
 export type OfferWorkspace = {
   request: {
@@ -73,11 +74,7 @@ export const getOfferWorkspace = async (offerId: number): Promise<OfferWorkspace
     'Ошибка загрузки workspace оффера'
   );
 
-  const availableActions =
-    response._links?.available_action ??
-    response._links?.available_actions ??
-    response._links?.availableActions ??
-    [];
+  const availableActions = resolveAvailableActions(response);
 
   return {
     request: {

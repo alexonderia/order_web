@@ -1,12 +1,9 @@
 import { fetchJson } from './client';
 import type { AuthLink } from './loginWebUser';
+import { resolveAvailableActions } from './mappers';
+import type { FileEntity, RequestEntity } from '@shared/types/domain';
 
-export type RequestDetailsFile = {
-  id: number;
-  name: string;
-  path: string;
-  download_url: string;
-};
+export type RequestDetailsFile = FileEntity;
 
 export type RequestDetailsOffer = {
   offer_id: number;
@@ -50,23 +47,7 @@ export type RequestDetails = {
   availableActions: AuthLink[];
 };
 
-type ApiRequestItem = {
-  request_id: number;
-  description: string | null;
-  status: string;
-  status_label: string;
-  deadline_at: string;
-  created_at: string;
-  updated_at: string;
-  closed_at: string | null;
-  owner_user_id: string;
-  chosen_offer_id: number | null;
-  stats: {
-    count_submitted: number;
-    count_deleted_alert: number;
-    count_accepted_total: number;
-    count_rejected_total: number;
-  };
+type ApiRequestItem = RequestEntity & {
   files: RequestDetailsFile[];
   offers?: RequestDetailsOffer[];
 };
@@ -108,10 +89,6 @@ export const getRequestDetails = async (requestId: number): Promise<RequestDetai
     count_rejected_total: item.stats.count_rejected_total,
     files: item.files ?? [],
     offers: item.offers ?? [],
-    availableActions:
-      response._links?.available_action ??
-      response._links?.available_actions ??
-      response._links?.availableActions ??
-      []
+    availableActions: resolveAvailableActions(response)
   };
 };

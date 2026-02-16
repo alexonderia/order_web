@@ -1,5 +1,5 @@
 import type { ReactNode } from 'react';
-import { Box, Button, Chip, MenuItem, Select, Stack, SvgIcon, Tooltip, Typography } from '@mui/material';
+import { Box, Chip, MenuItem, Select, Stack, SvgIcon, Tooltip, Typography } from '@mui/material';
 import { useTheme } from '@mui/material/styles';
 import type { RequestDetailsOffer } from '@shared/api/getRequestDetails';
 import { DataTable } from '@shared/components/DataTable';
@@ -18,8 +18,7 @@ type OffersTableProps = {
     errorMessage?: string | null;
     statusOptions: OfferStatusOption[];
     onStatusChange: (offerId: number, value: OfferDecisionStatus) => void;
-    onOpenChat: (offerId: number) => void;
-    onOpenWorkspace?: (offerId: number) => void;
+    onOpenWorkspace: (offerId: number) => void;
     onDownloadFile: (downloadUrl: string, fileName: string) => void;
 };
 
@@ -37,7 +36,7 @@ const columns = [
     { key: 'updatedAt', label: 'Дата изменения', minWidth: 120, fraction: 1.1 },
     { key: 'file', label: 'КП', minWidth: 150, fraction: 1.1 },
     { key: 'statusSelect', label: 'Статус', minWidth: 140, fraction: 1 },
-    { key: 'chat', label: 'Чат', minWidth: 150, fraction: 1 }
+    { key: 'communication', label: 'Общение', minWidth: 170, fraction: 1.2 }
 ];
 
 
@@ -143,7 +142,6 @@ export const OffersTable = ({
     errorMessage,
     statusOptions,
     onStatusChange,
-    onOpenChat,
     onOpenWorkspace,
     onDownloadFile
 }: OffersTableProps) => {
@@ -163,6 +161,7 @@ export const OffersTable = ({
             emptyMessage="Офферы пока не получены."
             statusContent={statusContent}
             storageKey="offers-table"
+            onRowClick={(offer) => onOpenWorkspace(offer.offer_id)}
             renderRow={(offer) => {
                 const notificationStyle = getNotificationStyle(offer.status, notificationPalette);
                 const contactInfo = getContactInfo(offer);
@@ -187,14 +186,7 @@ export const OffersTable = ({
                             {notificationStyle.icon}
                         </Box>
                     </Box>,
-                    <Button
-                        variant="text"
-                        size="small"
-                        onClick={() => onOpenWorkspace?.(offer.offer_id)}
-                        sx={{ px: 0, minWidth: 'auto', textTransform: 'none', fontWeight: 600 }}
-                    >
-                        {offer.offer_id}
-                    </Button>,
+                    <Typography variant="body2" fontWeight={600}>{offer.offer_id}</Typography>,
                     <Typography variant="body2">{counterparty}</Typography>,
                     <Stack spacing={0.5}>
                         {contactInfo.map((item) => (
@@ -224,7 +216,10 @@ export const OffersTable = ({
                                                 whiteSpace: 'nowrap'
                                             }
                                         }}
-                                        onClick={() => onDownloadFile(file.download_url, file.name)}
+                                        onClick={(event) => {
+                                            event.stopPropagation();
+                                            void onDownloadFile(file.download_url, file.name);
+                                        }}
                                     />
                                 </Tooltip>
                             ))}
@@ -237,6 +232,7 @@ export const OffersTable = ({
                         value={currentStatus}
                         displayEmpty
                         onChange={(event) => onStatusChange(offer.offer_id, event.target.value as OfferDecisionStatus)}
+                        onClick={(event) => event.stopPropagation()}
                         disabled={offer.status === 'deleted'}
                         sx={{ minWidth: 140 }}
                     >
@@ -252,14 +248,9 @@ export const OffersTable = ({
                         ))}
                     </Select>,
                     <Stack spacing={1} alignItems="flex-start">
-                        <Button
-                            variant="outlined"
-                            size="small"
-                            onClick={() => onOpenChat(offer.offer_id)}
-                            sx={{ textTransform: 'none', fontWeight: 600 }}
-                        >
-                            Открыть чат
-                        </Button>
+                        <Typography variant="body2" color="text.secondary">
+                            Откройте оффер нажатием на строку
+                        </Typography>
                         {hasNewChatAnswer(offer) && (
                             <Typography variant="caption" color="error">
                                 Новый ответ — откройте чат
