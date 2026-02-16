@@ -711,6 +711,7 @@ export const RequestDetailsPage = () => {
                     statusOptions={offerStatusOptions}
                     onStatusChange={(offerId, value) => void handleOfferStatusChange(offerId, value)}
                     onOpenChat={(offerId) => void handleOpenChat(offerId)}
+                    onOpenWorkspace={(offerId) => navigate(`/offers/${offerId}/workspace`)}
                     onDownloadFile={(downloadUrl, fileName) => void handleDownload(downloadUrl, fileName)}
                 />
             </Box>

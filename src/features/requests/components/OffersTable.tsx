@@ -19,6 +19,7 @@ type OffersTableProps = {
     statusOptions: OfferStatusOption[];
     onStatusChange: (offerId: number, value: OfferDecisionStatus) => void;
     onOpenChat: (offerId: number) => void;
+    onOpenWorkspace?: (offerId: number) => void;
     onDownloadFile: (downloadUrl: string, fileName: string) => void;
 };
 
@@ -143,6 +144,7 @@ export const OffersTable = ({
     statusOptions,
     onStatusChange,
     onOpenChat,
+    onOpenWorkspace,
     onDownloadFile
 }: OffersTableProps) => {
     const theme = useTheme();
@@ -185,7 +187,14 @@ export const OffersTable = ({
                             {notificationStyle.icon}
                         </Box>
                     </Box>,
-                    <Typography variant="body2">{offer.offer_id}</Typography>,
+                    <Button
+                        variant="text"
+                        size="small"
+                        onClick={() => onOpenWorkspace?.(offer.offer_id)}
+                        sx={{ px: 0, minWidth: 'auto', textTransform: 'none', fontWeight: 600 }}
+                    >
+                        {offer.offer_id}
+                    </Button>,
                     <Typography variant="body2">{counterparty}</Typography>,
                     <Stack spacing={0.5}>
                         {contactInfo.map((item) => (

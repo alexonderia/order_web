@@ -4,13 +4,10 @@ import {
   Box,
   Button,
   Chip,
-  Divider,
-  IconButton,
   MenuItem,
   Paper,
   Select,
   Stack,
-  SvgIcon,
   TextField,
   Typography
 } from '@mui/material';
@@ -20,11 +17,22 @@ import { DataTable } from '@shared/components/DataTable';
 import { downloadFile } from '@shared/api/fileDownload';
 import { getOfferWorkspace } from '@shared/api/getOfferWorkspace';
 import type { OfferWorkspace } from '@shared/api/getOfferWorkspace';
-import { deleteOfferFile, getOfferMessages, sendOfferMessage, uploadOfferFile } from '@shared/api/offerWorkspaceActions';
+import {
+  deleteOfferFile,
+  getOfferMessages,
+  markOfferMessagesRead,
+  markOfferMessagesReceived,
+  sendOfferMessage,
+  sendOfferMessageWithAttachments,
+  uploadOfferFile
+} from '@shared/api/offerWorkspaceActions';
 import type { OfferWorkspaceMessage } from '@shared/api/offerWorkspaceActions';
 import { getOfferContractorInfo } from '@shared/api/getOfferContractorInfo';
 import type { OfferContractorInfo } from '@shared/api/getOfferContractorInfo';
 import { hasAvailableAction } from '@shared/auth/availableActions';
+import type { AuthLink } from '@shared/api/loginWebUser';
+import { updateOfferStatus } from '@shared/api/updateOfferStatus';
+import { OfferWorkspaceChatPanel } from '@features/requests/components/OfferWorkspaceChatPanel';
 
 const statusOptions = [
   { value: 'open', label: 'Открыта', color: '#2e7d32' },
@@ -37,6 +45,11 @@ const detailsColumns = [
   { key: 'label', label: 'Параметр' },
   { key: 'value', label: 'Значение' }
 ];
+
+const offerDecisionOptions = [
+  { value: 'accepted', label: 'Принято' },
+  { value: 'rejected', label: 'Отказано' }
+] as const;
 
 const formatDate = (value: string | null, withTime = false) => {
   if (!value) {
@@ -66,12 +79,61 @@ export const OfferWorkspacePage = () => {
   const [workspace, setWorkspace] = useState<OfferWorkspace | null>(null);
   const [contractorInfo, setContractorInfo] = useState<OfferContractorInfo | null>(null);
   const [messages, setMessages] = useState<OfferWorkspaceMessage[]>([]);
-  const [message, setMessage] = useState('');
+  const [chatActions, setChatActions] = useState<AuthLink[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [isSending, setIsSending] = useState(false);
   const [isUploading, setIsUploading] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [isChatOpen, setIsChatOpen] = useState(true);
+  const [isUpdatingOfferStatus, setIsUpdatingOfferStatus] = useState(false);
+  const [offerDecisionStatus, setOfferDecisionStatus] = useState<'accepted' | 'rejected' | ''>('');
+
+  const loadMessages = useCallback(
+    async (syncStatuses = true) => {
+      const messagesResponse = await getOfferMessages(offerId);
+      setMessages(messagesResponse.items);
+      setChatActions(messagesResponse.availableActions);
+
+      if (!syncStatuses || !session?.login) {
+        return;
+      }
+
+      const canSetReceived = hasAvailableAction(
+        { availableActions: messagesResponse.availableActions },
+        `/api/v1/offers/${offerId}/messages/received`,
+        'PATCH'
+      );
+      const canSetRead = hasAvailableAction(
+        { availableActions: messagesResponse.availableActions },
+        `/api/v1/offers/${offerId}/messages/read`,
+        'PATCH'
+      );
+
+      const incomingSendIds = messagesResponse.items
+        .filter((item) => item.user_id !== session.login && item.status === 'send')
+        .map((item) => item.id);
+      const incomingReceivedIds = messagesResponse.items
+        .filter((item) => item.user_id !== session.login && item.status === 'received')
+        .map((item) => item.id);
+
+      let hasStatusUpdates = false;
+      if (canSetReceived && incomingSendIds.length > 0) {
+        await markOfferMessagesReceived(offerId, incomingSendIds);
+        hasStatusUpdates = true;
+      }
+      if (canSetRead && incomingReceivedIds.length > 0) {
+        await markOfferMessagesRead(offerId, incomingReceivedIds);
+        hasStatusUpdates = true;
+      }
+
+      if (hasStatusUpdates) {
+        const refreshed = await getOfferMessages(offerId);
+        setMessages(refreshed.items);
+        setChatActions(refreshed.availableActions);
+      }
+    },
+    [offerId, session?.login]
+  );
 
   const loadWorkspace = useCallback(async () => {
     if (!Number.isFinite(offerId) || offerId <= 0) {
@@ -82,9 +144,9 @@ export const OfferWorkspacePage = () => {
     setErrorMessage(null);
 
     try {
-      const [workspaceResponse, messagesResponse] = await Promise.all([getOfferWorkspace(offerId), getOfferMessages(offerId)]);
+      const workspaceResponse = await getOfferWorkspace(offerId);
       setWorkspace(workspaceResponse);
-      setMessages(messagesResponse);
+      await loadMessages();
       if (workspaceResponse.offer.contractor_user_id) {
         try {
           const contractor = await getOfferContractorInfo(workspaceResponse.offer.contractor_user_id);
@@ -100,18 +162,25 @@ export const OfferWorkspacePage = () => {
     } finally {
       setIsLoading(false);
     }
-  }, [offerId]);
+  }, [loadMessages, offerId]);
 
   useEffect(() => {
     void loadWorkspace();
+
     const interval = window.setInterval(() => {
-      void getOfferMessages(offerId)
-        .then(setMessages)
-        .catch(() => undefined);
+      void loadMessages().catch(() => undefined);
     }, 7000);
 
     return () => window.clearInterval(interval);
-  }, [loadWorkspace, offerId]);
+  }, [loadMessages, loadWorkspace]);
+
+  const availableActions = useMemo(() => {
+    if (chatActions.length > 0) {
+      return chatActions;
+    }
+
+    return workspace?.availableActions ?? [];
+  }, [chatActions, workspace?.availableActions]);
 
   const statusConfig = useMemo(
     () => statusOptions.find((item) => item.value === workspace?.request.status) ?? statusOptions[0],
@@ -119,22 +188,42 @@ export const OfferWorkspacePage = () => {
   );
 
   const canUpload = useMemo(
-    () => hasAvailableAction({ availableActions: workspace?.availableActions ?? [] }, `/api/v1/offers/${offerId}/files`, 'POST'),
-    [workspace?.availableActions, offerId]
+    () => hasAvailableAction({ availableActions }, `/api/v1/offers/${offerId}/files`, 'POST'),
+    [availableActions, offerId]
   );
   const canDeleteFile = useMemo(
     () =>
-      hasAvailableAction(
-        { availableActions: workspace?.availableActions ?? [] },
-        `/api/v1/offers/${offerId}/files/{file_id}`,
-        'DELETE'
-      ) || hasAvailableAction({ availableActions: workspace?.availableActions ?? [] }, `/api/v1/offers/${offerId}/files/1`, 'DELETE'),
-    [workspace?.availableActions, offerId]
+      hasAvailableAction({ availableActions }, `/api/v1/offers/${offerId}/files/{file_id}`, 'DELETE') ||
+      hasAvailableAction({ availableActions }, `/api/v1/offers/${offerId}/files/1`, 'DELETE'),
+    [availableActions, offerId]
   );
   const canSendMessage = useMemo(
-    () => hasAvailableAction({ availableActions: workspace?.availableActions ?? [] }, `/api/v1/offers/${offerId}/messages`, 'POST'),
-    [workspace?.availableActions, offerId]
+    () => hasAvailableAction({ availableActions }, `/api/v1/offers/${offerId}/messages`, 'POST'),
+    [availableActions, offerId]
   );
+  const canSendMessageWithAttachments = useMemo(
+    () =>
+      hasAvailableAction({ availableActions }, `/api/v1/offers/${offerId}/messages/attachments`, 'POST') || canSendMessage,
+    [availableActions, canSendMessage, offerId]
+  );
+  const canSetReadMessages = useMemo(
+    () => hasAvailableAction({ availableActions }, `/api/v1/offers/${offerId}/messages/read`, 'PATCH'),
+    [availableActions, offerId]
+  );
+  const canEditOfferStatus = useMemo(
+    () => session?.roleId === 1 || session?.roleId === 3,
+    [session?.roleId]
+  );
+
+  useEffect(() => {
+    const next = workspace?.offer.status;
+    if (next === 'accepted' || next === 'rejected') {
+      setOfferDecisionStatus(next);
+      return;
+    }
+
+    setOfferDecisionStatus('');
+  }, [workspace?.offer.status]);
 
   const detailsRows = [
     { id: 'created', label: 'Создана', value: formatDate(workspace?.request.created_at ?? null) },
@@ -188,25 +277,100 @@ export const OfferWorkspacePage = () => {
     }
   };
 
-  const handleSendMessage = async () => {
-    const trimmed = message.trim();
-    if (!trimmed) {
+  const handleSendMessage = async (text: string, files: File[]) => {
+    if (!canSendMessage) {
       return;
     }
 
     setIsSending(true);
     setErrorMessage(null);
     try {
-      await sendOfferMessage(offerId, trimmed);
-      setMessage('');
-      const nextMessages = await getOfferMessages(offerId);
-      setMessages(nextMessages);
+      if (files.length > 0) {
+        if (!canSendMessageWithAttachments) {
+          throw new Error('Отправка вложений недоступна для текущего пользователя');
+        }
+        await sendOfferMessageWithAttachments(offerId, text, files);
+      } else {
+        await sendOfferMessage(offerId, text);
+      }
+      await loadMessages(false);
     } catch (error) {
       setErrorMessage(error instanceof Error ? error.message : 'Не удалось отправить сообщение');
     } finally {
       setIsSending(false);
     }
   };
+
+  const handleOfferStatusChange = async (nextStatus: 'accepted' | 'rejected' | '') => {
+    if (!workspace || !nextStatus || !session?.login) {
+      setOfferDecisionStatus(nextStatus);
+      return;
+    }
+
+    const previousStatus = offerDecisionStatus;
+    setOfferDecisionStatus(nextStatus);
+    setErrorMessage(null);
+    setIsUpdatingOfferStatus(true);
+
+    try {
+      const response = await updateOfferStatus({
+        id_user: session.login,
+        offer_id: offerId,
+        status: nextStatus
+      });
+
+      setWorkspace((prev) =>
+        prev
+          ? {
+            ...prev,
+            offer: {
+              ...prev.offer,
+              status: response.offer.status
+            }
+          }
+          : prev
+      );
+    } catch (error) {
+      setOfferDecisionStatus(previousStatus);
+      setErrorMessage(error instanceof Error ? error.message : 'Не удалось обновить статус оффера');
+    } finally {
+      setIsUpdatingOfferStatus(false);
+    }
+  };
+
+  const handleMessageInputFocus = async () => {
+    if (!canSetReadMessages || !session?.login || messages.length === 0) {
+      return;
+    }
+
+    const lastMessage = messages[messages.length - 1];
+    if (!lastMessage || lastMessage.user_id === session.login) {
+      return;
+    }
+
+    const incomingSendIds = messages
+      .filter((item) => item.user_id !== session.login && item.status === 'send')
+      .map((item) => item.id);
+    const incomingReceivedIds = messages
+      .filter((item) => item.user_id !== session.login && item.status === 'received')
+      .map((item) => item.id);
+
+    try {
+      if (incomingSendIds.length > 0) {
+        await markOfferMessagesReceived(offerId, incomingSendIds);
+      }
+
+      const readIds = [...incomingReceivedIds, ...incomingSendIds];
+      if (readIds.length > 0) {
+        await markOfferMessagesRead(offerId, readIds);
+      }
+
+      await loadMessages(false);
+    } catch {
+      // silent: keep typing flow uninterrupted
+    }
+  };
+
 
   if (isLoading) {
     return <Typography>Загрузка...</Typography>;
@@ -365,9 +529,30 @@ export const OfferWorkspacePage = () => {
         </Paper>
 
         <Paper sx={{ mt: 2.5, p: 2, borderRadius: 3 }}>
-          <Stack direction="row" alignItems="center" spacing={1} sx={{ mb: 1 }}>
+          <Stack direction={{ xs: 'column', sm: 'row' }} alignItems={{ xs: 'flex-start', sm: 'center' }} spacing={1} sx={{ mb: 1 }}>
             <Typography variant="h6">Номер КП: {workspace.offer.offer_id}</Typography>
-            <Chip label={workspace.offer.status} color="success" size="small" />
+            <Chip label={workspace.offer.status_label ?? workspace.offer.status} color="success" size="small" />
+            {canEditOfferStatus ? (
+              <Select
+                size="small"
+                value={offerDecisionStatus}
+                displayEmpty
+                disabled={isUpdatingOfferStatus || workspace.offer.status === 'deleted'}
+                onChange={(event) => void handleOfferStatusChange(event.target.value as 'accepted' | 'rejected' | '')}
+                sx={{ minWidth: 170 }}
+              >
+                <MenuItem value="">
+                  <Typography variant="body2" color="text.secondary">
+                    Выберите статус
+                  </Typography>
+                </MenuItem>
+                {offerDecisionOptions.map((option) => (
+                  <MenuItem key={option.value} value={option.value}>
+                    {option.label}
+                  </MenuItem>
+                ))}
+              </Select>
+            ) : null}
           </Stack>
           <Stack spacing={1} sx={{ mb: 1.5 }}>
             <Typography variant="body2">Создана: {formatDate(workspace.offer.created_at)}</Typography>
@@ -380,6 +565,7 @@ export const OfferWorkspacePage = () => {
             ) : (
               workspace.offer.files.map((file) => (
                 <Chip
+                  key={file.id}
                   label={file.name}
                   variant="outlined"
                   onClick={() => void downloadFile(file.download_url, file.name)}
@@ -398,112 +584,21 @@ export const OfferWorkspacePage = () => {
         </Paper>
       </Box>
 
-      <Paper
-        sx={{
-          width: { xs: '100%', lg: isChatOpen ? 430 : 72 },
-          borderRadius: 0,
-          borderLeft: { lg: '1px solid #d6dbe4' },
-          p: 0,
-          display: 'flex',
-          flexDirection: 'column',
-          minHeight: { xs: 420, lg: '100%' },
-          height: { lg: '100%' },
-          transition: 'width 0.2s ease'
+      <OfferWorkspaceChatPanel
+        offerId={workspace.offer.offer_id}
+        isOpen={isChatOpen}
+        onToggleOpen={setIsChatOpen}
+        messages={messages}
+        sessionLogin={session?.login}
+        canSendMessage={canSendMessage}
+        canSendMessageWithAttachments={canSendMessageWithAttachments}
+        isSending={isSending}
+        onSendMessage={handleSendMessage}
+        onMessageInputFocus={handleMessageInputFocus}
+        onDownloadAttachment={(downloadUrl, name) => {
+          void downloadFile(downloadUrl, name);
         }}
-      >
-
-        {isChatOpen ? (
-          <>
-            <Box sx={{ display: 'flex', alignItems: 'center', p: 2 }}>
-              <Typography variant="h6" fontWeight={600} sx={{ flex: 1 }}>
-                Чат по офферу №{workspace.offer.offer_id}
-              </Typography>
-              <IconButton onClick={() => setIsChatOpen(false)} aria-label="Скрыть чат">
-                <SvgIcon fontSize="small">
-                  <path d="M19 6.41 17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z" />
-                </SvgIcon>
-              </IconButton>
-            </Box>
-            <Divider />
-
-            <Stack spacing={2} sx={{ p: 2, height: '100%' }}>
-              <Box
-                sx={{
-                  flex: 1,
-                  overflowY: 'auto',
-                  borderRadius: 2,
-                  backgroundColor: 'rgba(16, 63, 133, 0.04)',
-                  p: 2
-                }}
-              >
-                {messages.length === 0 ? (
-                  <Typography variant="body2" color="text.secondary">
-                    Сообщений пока нет.
-                  </Typography>
-                ) : (
-                  <Stack spacing={2} alignItems="stretch">
-                    {messages.map((item) => {
-                      const ownMessage = item.user_id === session?.login;
-                      const isEconomistView = session?.roleId === 1 || session?.roleId === 3;
-                      const ownLabel = isEconomistView ? 'Экономист' : 'Контрагент';
-                      const peerLabel = isEconomistView ? 'Контрагент' : 'Экономист';
-
-                      return (
-                        <Box
-                          key={item.id}
-                          sx={{
-                            backgroundColor: ownMessage ? '#ffffff' : 'rgba(25, 118, 210, 0.08)',
-                            borderRadius: 2,
-                            p: 1.5,
-                            boxShadow: '0 2px 6px rgba(0, 0, 0, 0.06)',
-                            alignSelf: ownMessage ? 'flex-end' : 'flex-start',
-                            textAlign: ownMessage ? 'right' : 'left',
-                            maxWidth: '85%'
-                          }}
-                        >
-                          <Typography variant="caption" color="text.secondary" sx={{ display: 'block' }}>
-                            {ownMessage ? ownLabel : peerLabel}
-                          </Typography>
-                          <Typography variant="body2" sx={{ mb: 0.5 }}>
-                            {item.text}
-                          </Typography>
-                          <Typography variant="caption" color="text.secondary">
-                            {formatDate(item.created_at, true)}
-                          </Typography>
-                        </Box>
-                      );
-                    })}
-                  </Stack>
-                )}
-              </Box>
-
-              <TextField
-                value={message}
-                onChange={(event) => setMessage(event.target.value)}
-                placeholder="Введите комментарий"
-                multiline
-                minRows={3}
-                disabled={!canSendMessage || isSending}
-              />
-
-              <Button
-                sx={{ alignSelf: 'flex-end', minWidth: 140, px: 4, boxShadow: 'none' }}
-                variant="contained"
-                disabled={!canSendMessage || isSending || !message.trim()}
-                onClick={() => void handleSendMessage()}
-              >
-                {isSending ? 'Отправляем...' : 'Отправить'}
-              </Button>
-            </Stack>
-          </>
-        ) : (
-          <Box sx={{ p: 1 }}>
-            <Button variant="text" size="small" onClick={() => setIsChatOpen(true)}>
-              Чат
-            </Button>
-          </Box>
-        )}
-      </Paper>
+      />
     </Stack>
   );
 };
