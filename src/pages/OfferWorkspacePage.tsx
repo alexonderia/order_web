@@ -4,10 +4,13 @@ import {
   Box,
   Button,
   Chip,
+  Divider,
+  IconButton,
   MenuItem,
   Paper,
   Select,
   Stack,
+  SvgIcon,
   TextField,
   Typography
 } from '@mui/material';
@@ -216,9 +219,21 @@ export const OfferWorkspacePage = () => {
   return (
     <Stack
       direction={{ xs: 'column', lg: 'row' }}
-      sx={{ minHeight: { lg: 'calc(100vh - 130px)' }, alignItems: 'stretch' }}
+      sx={{
+        height: { xs: 'auto', lg: '100vh' },
+        minHeight: { xs: 'auto', lg: '100vh' },
+        alignItems: 'stretch',
+        overflow: { lg: 'hidden' }
+      }}
     >
-      <Box sx={{ flex: 1, p: 2.5, backgroundColor: 'rgba(16, 63, 133, 0.06)' }}>
+      <Box
+        sx={{
+          flex: 1,
+          p: 2.5,
+          backgroundColor: 'rgba(16, 63, 133, 0.06)',
+          overflowY: { xs: 'visible', lg: 'auto' }
+        }}
+      >
         {errorMessage ? (
           <Typography color="error" sx={{ mb: 2 }}>
             {errorMessage}
@@ -388,75 +403,106 @@ export const OfferWorkspacePage = () => {
           width: { xs: '100%', lg: isChatOpen ? 430 : 72 },
           borderRadius: 0,
           borderLeft: { lg: '1px solid #d6dbe4' },
-          p: isChatOpen ? 2 : 1,
+          p: 0,
           display: 'flex',
           flexDirection: 'column',
-          minHeight: { xs: 420, lg: 'auto' },
+          minHeight: { xs: 420, lg: '100%' },
+          height: { lg: '100%' },
           transition: 'width 0.2s ease'
         }}
       >
-        <Stack direction="row" justifyContent="space-between" alignItems="center" sx={{ mb: isChatOpen ? 1 : 0 }}>
-          {isChatOpen ? (
-            <Typography variant="h5" sx={{ fontWeight: 600 }}>
-              Чат по офферу №{workspace.offer.offer_id}
-            </Typography>
-          ) : null}
-          <Button variant="text" size="small" onClick={() => setIsChatOpen((prev) => !prev)}>
-            {isChatOpen ? 'Скрыть' : 'Чат'}
-          </Button>
-        </Stack>
 
         {isChatOpen ? (
           <>
-            <Box sx={{ flex: 1, borderRadius: 5, backgroundColor: 'rgba(16, 63, 133, 0.04)', p: 2, overflowY: 'auto' }}>
-              <Stack spacing={2} alignItems="stretch">
-                {messages.map((item) => {
-                  const ownMessage = item.user_id === session?.login;
-                  return (
-                    <Box
-                      key={item.id}
-                      sx={{
-                        alignSelf: ownMessage ? 'flex-end' : 'flex-start',
-                        maxWidth: '85%',
-                        borderRadius: 5,
-                        px: 2,
-                        py: 1.5,
-                        backgroundColor: '#fff'
-                      }}
-                    >
-                      <Typography variant="body2" color="text.secondary" sx={{ textAlign: 'right' }}>
-                        {ownMessage ? 'Контрагент' : 'Экономист'}
-                      </Typography>
-                      <Typography variant="body1">{item.text}</Typography>
-                      <Typography variant="body2" color="text.secondary" sx={{ textAlign: 'right' }}>
-                        {formatDate(item.created_at, true)}
-                      </Typography>
-                    </Box>
-                  );
-                })}
-              </Stack>
+            <Box sx={{ display: 'flex', alignItems: 'center', p: 2 }}>
+              <Typography variant="h6" fontWeight={600} sx={{ flex: 1 }}>
+                Чат по офферу №{workspace.offer.offer_id}
+              </Typography>
+              <IconButton onClick={() => setIsChatOpen(false)} aria-label="Скрыть чат">
+                <SvgIcon fontSize="small">
+                  <path d="M19 6.41 17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z" />
+                </SvgIcon>
+              </IconButton>
             </Box>
+            <Divider />
 
-            <TextField
-              sx={{ mt: 2 }}
-              value={message}
-              onChange={(event) => setMessage(event.target.value)}
-              placeholder="Введите комментарий"
-              multiline
-              minRows={3}
-              disabled={!canSendMessage || isSending}
-            />
+            <Stack spacing={2} sx={{ p: 2, height: '100%' }}>
+              <Box
+                sx={{
+                  flex: 1,
+                  overflowY: 'auto',
+                  borderRadius: 2,
+                  backgroundColor: 'rgba(16, 63, 133, 0.04)',
+                  p: 2
+                }}
+              >
+                {messages.length === 0 ? (
+                  <Typography variant="body2" color="text.secondary">
+                    Сообщений пока нет.
+                  </Typography>
+                ) : (
+                  <Stack spacing={2} alignItems="stretch">
+                    {messages.map((item) => {
+                      const ownMessage = item.user_id === session?.login;
+                      const isEconomistView = session?.roleId === 1 || session?.roleId === 3;
+                      const ownLabel = isEconomistView ? 'Экономист' : 'Контрагент';
+                      const peerLabel = isEconomistView ? 'Контрагент' : 'Экономист';
 
-            <Button
-              sx={{ mt: 2, alignSelf: 'flex-end', minWidth: 140 }}
-              variant="contained"
-              disabled={!canSendMessage || isSending || !message.trim()}
-              onClick={() => void handleSendMessage()}
-            >
-              {isSending ? 'Отправляем...' : 'Отправить'}
-            </Button>
+                      return (
+                        <Box
+                          key={item.id}
+                          sx={{
+                            backgroundColor: ownMessage ? '#ffffff' : 'rgba(25, 118, 210, 0.08)',
+                            borderRadius: 2,
+                            p: 1.5,
+                            boxShadow: '0 2px 6px rgba(0, 0, 0, 0.06)',
+                            alignSelf: ownMessage ? 'flex-end' : 'flex-start',
+                            textAlign: ownMessage ? 'right' : 'left',
+                            maxWidth: '85%'
+                          }}
+                        >
+                          <Typography variant="caption" color="text.secondary" sx={{ display: 'block' }}>
+                            {ownMessage ? ownLabel : peerLabel}
+                          </Typography>
+                          <Typography variant="body2" sx={{ mb: 0.5 }}>
+                            {item.text}
+                          </Typography>
+                          <Typography variant="caption" color="text.secondary">
+                            {formatDate(item.created_at, true)}
+                          </Typography>
+                        </Box>
+                      );
+                    })}
+                  </Stack>
+                )}
+              </Box>
+
+              <TextField
+                value={message}
+                onChange={(event) => setMessage(event.target.value)}
+                placeholder="Введите комментарий"
+                multiline
+                minRows={3}
+                disabled={!canSendMessage || isSending}
+              />
+
+              <Button
+                sx={{ alignSelf: 'flex-end', minWidth: 140, px: 4, boxShadow: 'none' }}
+                variant="contained"
+                disabled={!canSendMessage || isSending || !message.trim()}
+                onClick={() => void handleSendMessage()}
+              >
+                {isSending ? 'Отправляем...' : 'Отправить'}
+              </Button>
+            </Stack>
           </>
-        ) : null}
+        ) : (
+          <Box sx={{ p: 1 }}>
+            <Button variant="text" size="small" onClick={() => setIsChatOpen(true)}>
+              Чат
+            </Button>
+          </Box>
+        )}
       </Paper>
     </Stack>
   );

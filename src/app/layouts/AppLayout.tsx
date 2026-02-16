@@ -113,7 +113,13 @@ export const AppLayout = () => {
 
 
   return (
-    <Box sx={{ minHeight: '100vh', backgroundColor: 'background.default', p: { xs: 1.5, md: 2.5 } }}>
+    <Box
+      sx={{
+        minHeight: '100vh',
+        backgroundColor: 'background.default',
+        p: isOfferWorkspacePage ? 0 : { xs: 1.5, md: 2.5 }
+      }}
+    >
       {isOfferWorkspacePage ? null : (
         <Stack component="header" direction="row" alignItems="center" justifyContent="space-between" sx={{ mb: 2 }}>
           {isRequestDetailsPage ? (
