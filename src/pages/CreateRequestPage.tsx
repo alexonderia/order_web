@@ -216,22 +216,18 @@ export const CreateRequestPage = () => {
                                             variant="outlined"
                                             sx={{
                                                 maxWidth: '100%',
+                                                borderRadius: 999,
+                                                backgroundColor: '#fff',
                                                 '& .MuiChip-label': {
                                                     overflow: 'hidden',
                                                     textOverflow: 'ellipsis'
-                                                },
-                                                '& .MuiChip-deleteIcon': {
-                                                    color: '#5d6675',
-                                                    backgroundColor: '#d8dde6',
-                                                    borderRadius: '50%',
-                                                    p: '1px'
                                                 }
                                             }}
                                         />
                                     ))}
                                 </Box>
                             ) : (
-                                <Typography variant="body2">Файлы не выбраны</Typography>
+                                <Typography variant="body2"  color="text.secondary">Файлы не выбраны</Typography>
                             )}
                             {errors.files ? (
                                 <Typography variant="caption" color="error">

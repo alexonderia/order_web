@@ -8,6 +8,7 @@ import {
   Paper,
   Select,
   Stack,
+  SvgIcon,
   TextField,
   Typography
 } from '@mui/material';
@@ -50,6 +51,61 @@ const offerDecisionOptions = [
   { value: 'accepted', label: 'Принято' },
   { value: 'rejected', label: 'Отказано' }
 ] as const;
+
+const getOfferStatusBadgeStyle = (status: string | null) => {
+  if (status === 'accepted') {
+    return {
+      borderColor: '#2e7d32',
+      icon: (
+        <SvgIcon fontSize="small" sx={{ color: '#2e7d32' }}>
+          <path d="M9 16.17 4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z" />
+        </SvgIcon>
+      )
+    };
+  }
+
+  if (status === 'submitted') {
+    return {
+      borderColor: '#2e7d32',
+      icon: (
+        <SvgIcon fontSize="small" sx={{ color: '#2e7d32' }}>
+          <path d="M19 13H13V19H11V13H5V11H11V5H13V11H19V13Z" />
+        </SvgIcon>
+      )
+    };
+  }
+
+  if (status === 'deleted') {
+    return {
+      borderColor: '#c62828',
+      icon: (
+        <SvgIcon fontSize="small" sx={{ color: '#c62828' }}>
+          <path d="M11 15h2v2h-2zm0-10h2v8h-2z" />
+        </SvgIcon>
+      )
+    };
+  }
+
+  if (status === 'rejected') {
+    return {
+      borderColor: '#787878',
+      icon: (
+        <SvgIcon fontSize="small" sx={{ color: '#787878' }}>
+          <path d="M19 13H5V11H19V13Z" />
+        </SvgIcon>
+      )
+    };
+  }
+
+  return {
+    borderColor: '#d3dbe7',
+    icon: (
+      <SvgIcon fontSize="small" sx={{ color: '#1f2a44' }}>
+        <path d="M19 13H5V11H19V13Z" />
+      </SvgIcon>
+    )
+  };
+};
 
 const formatDate = (value: string | null, withTime = false) => {
   if (!value) {
@@ -187,6 +243,10 @@ export const OfferWorkspacePage = () => {
     [workspace?.request.status]
   );
 
+  const offerStatusBadgeStyle = useMemo(() => getOfferStatusBadgeStyle(workspace?.offer.status ?? null), [workspace?.offer.status]);
+  const isContractor = session?.roleId === 5;
+  const isEconomist = session?.roleId === 1 || session?.roleId === 3 || session?.roleId === 4;
+
   const canUpload = useMemo(
     () => hasAvailableAction({ availableActions }, `/api/v1/offers/${offerId}/files`, 'POST'),
     [availableActions, offerId]
@@ -211,7 +271,7 @@ export const OfferWorkspacePage = () => {
     [availableActions, offerId]
   );
   const canEditOfferStatus = useMemo(
-    () => session?.roleId === 1 || session?.roleId === 3,
+    () => session?.roleId === 1 || session?.roleId === 3 || session?.roleId === 4,
     [session?.roleId]
   );
 
@@ -303,7 +363,7 @@ export const OfferWorkspacePage = () => {
 
   const handleOfferStatusChange = async (nextStatus: 'accepted' | 'rejected' | '') => {
     if (!workspace || !nextStatus || !session?.login) {
-      setOfferDecisionStatus(nextStatus);
+      setOfferDecisionStatus(nextStatus); 
       return;
     }
 
@@ -395,7 +455,11 @@ export const OfferWorkspacePage = () => {
           flex: 1,
           p: 2.5,
           backgroundColor: 'rgba(16, 63, 133, 0.06)',
-          overflowY: { xs: 'visible', lg: 'auto' }
+          overflowY: { xs: 'visible', lg: 'auto' },
+          scrollbarWidth: 'none',
+          '&::-webkit-scrollbar': {
+            display: 'none'
+          }
         }}
       >
         {errorMessage ? (
@@ -408,9 +472,9 @@ export const OfferWorkspacePage = () => {
           <Button
             variant="outlined"
             sx={{ px: 4, borderColor: 'primary.main', color: 'primary.main', whiteSpace: 'nowrap' }}
-            onClick={() => navigate('/requests')}
+            onClick={() => (isEconomist ? navigate(-1) : navigate('/requests'))}
           >
-            К списку заявок
+            {isEconomist ? 'Назад' : 'К списку заявок'}
           </Button>
           <Stack direction="row" spacing={2} alignItems="center">
             <Typography variant="h6">профиль</Typography>
@@ -531,7 +595,35 @@ export const OfferWorkspacePage = () => {
         <Paper sx={{ mt: 2.5, p: 2, borderRadius: 3 }}>
           <Stack direction={{ xs: 'column', sm: 'row' }} alignItems={{ xs: 'flex-start', sm: 'center' }} spacing={1} sx={{ mb: 1 }}>
             <Typography variant="h6">Номер КП: {workspace.offer.offer_id}</Typography>
-            <Chip label={workspace.offer.status_label ?? workspace.offer.status} color="success" size="small" />
+            {isContractor ? (
+              <Chip
+                label={workspace.offer.status_label ?? workspace.offer.status}
+                size="small"
+                variant="outlined"
+                sx={{
+                  borderColor: offerStatusBadgeStyle.borderColor,
+                  color: offerStatusBadgeStyle.borderColor,
+                  backgroundColor: 'transparent',
+                  fontWeight: 600
+                }}
+              />
+            ) : (
+              <Box
+                sx={{
+                  width: 28,
+                  height: 28,
+                  borderRadius: 8,
+                  border: `1px solid ${offerStatusBadgeStyle.borderColor}`,
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  backgroundColor: 'transparent'
+                }}
+                aria-label={`status-${workspace.offer.status ?? 'unknown'}`}
+              >
+                {offerStatusBadgeStyle.icon}
+              </Box>
+            )}
             {canEditOfferStatus ? (
               <Select
                 size="small"

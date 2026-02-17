@@ -30,8 +30,8 @@ type NotificationStyle = {
 const columns = [
     { key: 'status', label: '', minWidth: 60, fraction: 0.3 },
     { key: 'offerId', label: 'Номер КП', minWidth: 100, fraction: 0.8 },
-    { key: 'counterparty', label: 'Контрагент', minWidth: 160, fraction: 1.4 },
-    { key: 'contacts', label: 'Контакты', minWidth: 200, fraction: 1.6 },
+    { key: 'counterparty', label: 'Контрагент', minWidth: 220, fraction: 1.8 },
+    { key: 'contacts', label: 'Контактное лицо', minWidth: 220, fraction: 1.8 },
     { key: 'createdAt', label: 'Дата создания', minWidth: 120, fraction: 1.1 },
     { key: 'updatedAt', label: 'Дата изменения', minWidth: 120, fraction: 1.1 },
     { key: 'file', label: 'КП', minWidth: 150, fraction: 1.1 },
@@ -65,16 +65,37 @@ const getFileLabelWithHint = (value: string, max = 18) => {
     return `${value.slice(0, max - 1)}…`;
 };
 
-const getContactInfo = (offer: RequestDetailsOffer) => {
-    const parts = [
-        offer.tg_username ? `Telegram: ${offer.tg_username}` : null,
-        offer.phone ? `Телефон: ${offer.phone}` : null,
-        offer.mail ? `Email: ${offer.mail}` : null,
-        offer.address ? `Адрес: ${offer.address}` : null,
-        offer.note ? `Комментарий: ${offer.note}` : null
-    ].filter(Boolean) as string[];
+const getCounterpartyInfo = (offer: RequestDetailsOffer) => {
+    const inn = offer.contractor_inn ?? null;
+    const companyName = offer.contractor_company_name ?? null;
+    const companyPhone = offer.contractor_company_phone ?? offer.contractor_phone ?? null;
+    const companyMail = offer.contractor_company_mail ?? offer.contractor_mail ?? null;
+    const companyAddress = offer.contractor_address ?? null;
+    const companyNote = offer.contractor_note ?? null;
 
-    return parts.length > 0 ? parts : ['-'];
+    const parts = [
+        `ИНН: ${inn ?? 'Не указано'}`,
+        `Наименование компании: ${companyName ?? 'Не указано'}`,
+        `Телефон: ${companyPhone ?? 'Не указано'}`,
+        `E-mail: ${companyMail ?? 'Не указано'}`,
+        `Адрес: ${companyAddress ?? 'Не указано'}`,
+        `Дополнительная информация: ${companyNote ?? 'Не указано'}`
+    ];
+
+    return parts;
+};
+
+const getContactPersonInfo = (offer: RequestDetailsOffer) => {
+    const fullName = offer.contractor_full_name ?? null;
+    const phone = offer.contractor_contact_phone ?? offer.contractor_phone ?? null;
+    const mail = offer.contractor_contact_mail ?? offer.contractor_mail ?? null;
+    const parts = [
+        `ФИО: ${fullName ?? 'Не указано'}`,
+        `Телефон: ${phone ?? 'Не указано'}`,
+        `E-mail: ${mail ?? 'Не указано'}`
+    ];
+
+    return parts;
 };
 
 const getNotificationStyle = (status: string | null, palette: { divider: string; text: string }): NotificationStyle => {
@@ -160,12 +181,12 @@ export const OffersTable = ({
             isLoading={isLoading}
             emptyMessage="Офферы пока не получены."
             statusContent={statusContent}
-            storageKey="offers-table"
+            storageKey="offers-table-v2"
             onRowClick={(offer) => onOpenWorkspace(offer.offer_id)}
             renderRow={(offer) => {
                 const notificationStyle = getNotificationStyle(offer.status, notificationPalette);
-                const contactInfo = getContactInfo(offer);
-                const counterparty = offer.real_name ?? offer.tg_username ?? '-';
+                const counterpartyInfo = getCounterpartyInfo(offer);
+                const contactPersonInfo = getContactPersonInfo(offer);
                 const currentStatus = statusMap[offer.offer_id] ?? '';
 
                 return [
@@ -187,9 +208,15 @@ export const OffersTable = ({
                         </Box>
                     </Box>,
                     <Typography variant="body2" fontWeight={600}>{offer.offer_id}</Typography>,
-                    <Typography variant="body2">{counterparty}</Typography>,
                     <Stack spacing={0.5}>
-                        {contactInfo.map((item) => (
+                        {counterpartyInfo.map((item) => (
+                            <Typography key={item} variant="body2">
+                                {item}
+                            </Typography>
+                        ))}
+                    </Stack>,
+                    <Stack spacing={0.5}>
+                        {contactPersonInfo.map((item) => (
                             <Typography key={item} variant="body2">
                                 {item}
                             </Typography>

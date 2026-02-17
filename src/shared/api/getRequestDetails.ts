@@ -7,18 +7,23 @@ export type RequestDetailsFile = FileEntity;
 
 export type RequestDetailsOffer = {
   offer_id: number;
-  id_request: number;
-  id_user_tg: number;
   status: string | null;
   created_at: string;
   updated_at: string;
-  tg_username: string | null;
-  real_name: string | null;
-  id_contacts: number | null;
-  phone: string | null;
-  mail: string | null;
-  address: string | null;
-  note: string | null;
+  status_label?: string | null;
+  offer_workspace_url?: string | null;
+  contractor_user_id?: string | null;
+  contractor_company_name?: string | null;
+  contractor_full_name?: string | null;
+  contractor_phone?: string | null;
+  contractor_mail?: string | null;
+  contractor_address?: string | null;
+  contractor_note?: string | null;
+  contractor_inn?: string | null;
+  contractor_company_phone?: string | null;
+  contractor_company_mail?: string | null;
+  contractor_contact_phone?: string | null;
+  contractor_contact_mail?: string | null;
   offer_chat_stats?: {
     status_web: boolean | null;
     status_tg: boolean | null;

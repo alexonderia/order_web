@@ -207,8 +207,12 @@ export const OfferWorkspaceChatPanel = ({
               sx={{
                 flex: 1,
                 overflowY: 'auto',
+                scrollbarWidth: 'none',
+                '&::-webkit-scrollbar': {
+                  display: 'none'
+                },
                 borderRadius: 2,
-                backgroundColor: 'rgba(16, 63, 133, 0.04)',
+                backgroundColor: (theme) => alpha(theme.palette.primary.main, 0.05),
                 p: 2
               }}
             >
@@ -226,16 +230,16 @@ export const OfferWorkspaceChatPanel = ({
                     const showDateDivider = !prev
                       ? true
                       : (() => {
-                          const a = new Date(prev.created_at ?? '');
-                          const b = new Date(item.created_at ?? '');
-                          if (Number.isNaN(a.getTime()) || Number.isNaN(b.getTime())) return false;
-                          return !isSameDay(a, b);
-                        })();
+                        const a = new Date(prev.created_at ?? '');
+                        const b = new Date(item.created_at ?? '');
+                        if (Number.isNaN(a.getTime()) || Number.isNaN(b.getTime())) return false;
+                        return !isSameDay(a, b);
+                      })();
 
                     const isGroupedWithPrev = Boolean(
                       prev &&
-                        prev.user_id === item.user_id &&
-                        isSameDay(new Date(prev.created_at ?? ''), new Date(item.created_at ?? ''))
+                      prev.user_id === item.user_id &&
+                      isSameDay(new Date(prev.created_at ?? ''), new Date(item.created_at ?? ''))
                     );
 
                     return (
@@ -284,7 +288,9 @@ export const OfferWorkspaceChatPanel = ({
                                 borderBottomLeftRadius: `${R}px`,
                                 borderBottomRightRadius: `${R}px`,
 
-                                backgroundColor: ownMessage ? '#8f4aa6' : theme.palette.background.paper,
+                                backgroundColor: ownMessage
+                                  ? theme.palette.primary.main
+                                  : alpha(theme.palette.background.paper, 0.98),
                                 color: ownMessage ? 'rgba(255,255,255,0.96)' : theme.palette.text.primary,
 
                                 boxShadow: ownMessage
@@ -317,9 +323,13 @@ export const OfferWorkspaceChatPanel = ({
                                     onClick={() => onDownloadAttachment(attachment.download_url, attachment.name)}
                                     sx={(theme) => ({
                                       alignSelf: ownMessage ? 'flex-end' : 'flex-start',
-                                      borderColor: ownMessage ? alpha('#ffffff', 0.35) : theme.palette.divider,
+                                      borderColor: ownMessage
+                                        ? alpha(theme.palette.common.white, 0.35)
+                                        : theme.palette.divider,
                                       color: ownMessage ? 'rgba(255,255,255,0.92)' : theme.palette.text.primary,
-                                      backgroundColor: ownMessage ? alpha('#000', 0.12) : theme.palette.background.default,
+                                      backgroundColor: ownMessage
+                                        ? alpha(theme.palette.primary.dark, 0.34)
+                                        : theme.palette.background.default,
                                       '& .MuiChip-label': { color: 'inherit' }
                                     })}
                                   />
@@ -360,7 +370,7 @@ export const OfferWorkspaceChatPanel = ({
 
             <Box component="form" onSubmit={handleSubmit(onSubmitMessage)}>
               <TextField
-                placeholder="Введите комментарий"
+                placeholder="Введите сообщение"
                 multiline
                 minRows={3}
                 fullWidth
@@ -382,36 +392,85 @@ export const OfferWorkspaceChatPanel = ({
                 ))}
               </Stack>
 
-              {canSendMessageWithAttachments ? (
-                <Button variant="text" component="label" disabled={isSending} sx={{ mt: 1, px: 0 }}>
-                  Прикрепить файлы
-                  <Controller
-                    control={control}
-                    name="files"
-                    render={({ field: { value, onChange } }) => (
-                      <input
-                        type="file"
-                        hidden
-                        multiple
-                        onChange={(event) => {
-                          const nextFiles = Array.from(event.target.files ?? []);
-                          onChange(mergeUniqueFiles(value ?? [], nextFiles));
-                          event.target.value = '';
-                        }}
+              <Stack direction="row" justifyContent="space-between" alignItems="center" sx={{ mt: 1 }}>
+                {canSendMessageWithAttachments ? (
+                  <IconButton
+                    component="label"
+                    disabled={isSending}
+                    color="primary"
+                    aria-label="Прикрепить файлы"
+                    sx={{
+                      border: (theme) => `1px solid ${alpha(theme.palette.primary.main, 0.24)}`,
+                      backgroundColor: (theme) => alpha(theme.palette.primary.main, 0.08),
+                      '&:hover': {
+                        backgroundColor: (theme) => alpha(theme.palette.primary.main, 0.16)
+                      }
+                    }}
+                  >
+                    <SvgIcon fontSize="small">
+                      <path
+                        d="M15.5 6.5v8.25a3.75 3.75 0 1 1-7.5 0V5.75a2.5 2.5 0 1 1 5 0v7.5a1.25 1.25 0 1 1-2.5 0V7.5"
+                        fill="none"
+                        stroke="currentColor"
+                        strokeWidth="1.9"
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
                       />
-                    )}
-                  />
-                </Button>
-              ) : null}
+                    </SvgIcon>
+                    <Controller
+                      control={control}
+                      name="files"
+                      render={({ field: { value, onChange } }) => (
+                        <input
+                          type="file"
+                          hidden
+                          multiple
+                          onChange={(event) => {
+                            const nextFiles = Array.from(event.target.files ?? []);
+                            onChange(mergeUniqueFiles(value ?? [], nextFiles));
+                            event.target.value = '';
+                          }}
+                        />
+                      )}
+                    />
+                  </IconButton>
+                ) : (
+                  <Box />
+                )}
 
-              <Button
-                type="submit"
-                sx={{ mt: 1, alignSelf: 'flex-end', minWidth: 140, px: 4, boxShadow: 'none' }}
-                variant="contained"
-                disabled={!canSendMessage || isSending || !messageText.trim()}
-              >
-                {isSending ? 'Отправляем...' : 'Отправить'}
-              </Button>
+                <IconButton
+                  type="submit"
+                  color="primary"
+                  disabled={!canSendMessage || isSending || !messageText.trim()}
+                  aria-label={isSending ? 'Отправка сообщения' : 'Отправить сообщение'}
+                  sx={{
+                    border: (theme) => `1px solid ${alpha(theme.palette.primary.main, 0.24)}`,
+                    backgroundColor: (theme) => alpha(theme.palette.primary.main, 0.1),
+                    '&:hover': {
+                      backgroundColor: (theme) => alpha(theme.palette.primary.main, 0.2)
+                    }
+                  }}
+                >
+                  <SvgIcon fontSize="small">
+                    <path
+                      d="M3.5 12.5 19.75 4.5l-3.75 15-4.25-6-8.25-1z"
+                      fill="none"
+                      stroke="currentColor"
+                      strokeWidth="1.85"
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                    />
+                    <path
+                      d="m19.75 4.5-8 9"
+                      fill="none"
+                      stroke="currentColor"
+                      strokeWidth="1.85"
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                    />
+                  </SvgIcon>
+                </IconButton>
+              </Stack>
             </Box>
           </Stack>
         </>
