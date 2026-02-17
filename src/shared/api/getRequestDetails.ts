@@ -24,6 +24,7 @@ export type RequestDetailsOffer = {
   contractor_company_mail?: string | null;
   contractor_contact_phone?: string | null;
   contractor_contact_mail?: string | null;
+  unread_messages_count?: number | null;
   offer_chat_stats?: {
     status_web: boolean | null;
     status_tg: boolean | null;

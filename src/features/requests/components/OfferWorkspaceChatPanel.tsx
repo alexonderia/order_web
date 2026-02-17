@@ -70,9 +70,13 @@ const formatDayLabel = (iso: string | null) => {
 
 const MessageStatusIcon = ({ status }: { status: OfferWorkspaceMessage['status'] }) => {
   const isDouble = status === 'received' || status === 'read';
-  const isRead = status === 'read';
+  const colorByStatus: Record<OfferWorkspaceMessage['status'], string> = {
+    send: 'rgba(214,236,255,0.95)',
+    received: '#d2e9ff',
+    read: '#ffffff'
+  };
 
-  const color = isRead ? 'primary.main' : 'text.secondary';
+  const color = colorByStatus[status];
 
   return (
     <Box
@@ -83,7 +87,7 @@ const MessageStatusIcon = ({ status }: { status: OfferWorkspaceMessage['status']
         justifyContent: 'center',
         ml: 0.5,
         color,
-        opacity: status === 'send' ? 0.85 : 1
+        opacity: status === 'send' ? 0.9 : 1,
       }}
       aria-label={`message-status-${status}`}
     >

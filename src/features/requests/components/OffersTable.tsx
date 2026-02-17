@@ -153,8 +153,17 @@ const getNotificationStyle = (status: string | null, palette: { divider: string;
     };
 };
 
-const hasNewChatAnswer = (offer: RequestDetailsOffer) =>
-    Boolean(offer.offer_chat_stats?.status_web && !offer.offer_chat_stats?.status_tg);
+const getUnreadMessagesLabel = (count: number) => {
+    if (count <= 0) {
+        return null;
+    }
+
+    if (count === 1) {
+        return 'Новое сообщение';
+    }
+
+    return `Новых сообщений: ${count}`;
+};
 
 export const OffersTable = ({
     offers,
@@ -181,7 +190,7 @@ export const OffersTable = ({
             isLoading={isLoading}
             emptyMessage="Офферы пока не получены."
             statusContent={statusContent}
-            storageKey="offers-table-v2"
+            storageKey="offers-table"
             onRowClick={(offer) => onOpenWorkspace(offer.offer_id)}
             renderRow={(offer) => {
                 const notificationStyle = getNotificationStyle(offer.status, notificationPalette);
@@ -275,14 +284,32 @@ export const OffersTable = ({
                         ))}
                     </Select>,
                     <Stack spacing={1} alignItems="flex-start">
-                        <Typography variant="body2" color="text.secondary">
-                            Откройте оффер нажатием на строку
-                        </Typography>
-                        {hasNewChatAnswer(offer) && (
-                            <Typography variant="caption" color="error">
-                                Новый ответ — откройте чат
-                            </Typography>
-                        )}
+                        {(() => {
+                            const unreadCount = offer.unread_messages_count ?? 0;
+                            const unreadLabel = getUnreadMessagesLabel(unreadCount);
+
+                            if (!unreadLabel) {
+                                return (
+                                    <Typography variant="body2" color="text.secondary">
+                                        Откройте оффер нажатием на строку
+                                    </Typography>
+                                );
+                            }
+
+                            return (
+                                <Chip
+                                    label={unreadLabel}
+                                    size="small"
+                                    variant="outlined"
+                                    sx={(theme) => ({
+                                        borderColor: theme.palette.primary.main,
+                                        color: theme.palette.primary.main,
+                                        fontWeight: 600,
+                                        backgroundColor: 'transparent'
+                                    })}
+                                />
+                            );
+                        })()}
                     </Stack>
                 ];
             }}
