@@ -124,7 +124,7 @@ type OfferWorkspaceChatPanelProps = {
   canSendMessageWithAttachments: boolean;
   isSending: boolean;
   onSendMessage: (text: string, files: File[]) => Promise<void>;
-  onMessageInputFocus: () => Promise<void> | void;
+  onMessageInputClick: () => Promise<void> | void;
   onDownloadAttachment: (downloadUrl: string, name: string) => void;
 };
 
@@ -138,7 +138,7 @@ export const OfferWorkspaceChatPanel = ({
   canSendMessageWithAttachments,
   isSending,
   onSendMessage,
-  onMessageInputFocus,
+  onMessageInputClick,
   onDownloadAttachment
 }: OfferWorkspaceChatPanelProps) => {
   const {
@@ -382,7 +382,7 @@ export const OfferWorkspaceChatPanel = ({
                 error={Boolean(errors.text)}
                 helperText={errors.text?.message}
                 {...register('text')}
-                onFocus={() => void onMessageInputFocus()}
+                onClick={() => void onMessageInputClick()}
               />
 
               <Stack direction="row" flexWrap="wrap" gap={1} sx={{ mt: 1 }}>

@@ -159,26 +159,14 @@ export const OfferWorkspacePage = () => {
         `/api/v1/offers/${offerId}/messages/received`,
         'PATCH'
       );
-      const canSetRead = hasAvailableAction(
-        { availableActions: messagesResponse.availableActions },
-        `/api/v1/offers/${offerId}/messages/read`,
-        'PATCH'
-      );
 
       const incomingSendIds = messagesResponse.items
         .filter((item) => item.user_id !== session.login && item.status === 'send')
-        .map((item) => item.id);
-      const incomingReceivedIds = messagesResponse.items
-        .filter((item) => item.user_id !== session.login && item.status === 'received')
         .map((item) => item.id);
 
       let hasStatusUpdates = false;
       if (canSetReceived && incomingSendIds.length > 0) {
         await markOfferMessagesReceived(offerId, incomingSendIds);
-        hasStatusUpdates = true;
-      }
-      if (canSetRead && incomingReceivedIds.length > 0) {
-        await markOfferMessagesRead(offerId, incomingReceivedIds);
         hasStatusUpdates = true;
       }
 
@@ -398,7 +386,7 @@ export const OfferWorkspacePage = () => {
     }
   };
 
-  const handleMessageInputFocus = async () => {
+  const handleMessageInputClick = async () => {
     if (!canSetReadMessages || !session?.login || messages.length === 0) {
       return;
     }
@@ -686,7 +674,7 @@ export const OfferWorkspacePage = () => {
         canSendMessageWithAttachments={canSendMessageWithAttachments}
         isSending={isSending}
         onSendMessage={handleSendMessage}
-        onMessageInputFocus={handleMessageInputFocus}
+        onMessageInputClick={handleMessageInputClick}
         onDownloadAttachment={(downloadUrl, name) => {
           void downloadFile(downloadUrl, name);
         }}
