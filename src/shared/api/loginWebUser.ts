@@ -3,6 +3,7 @@ import { fetchJson  } from './client';
 export type LoginWebUserPayload = {
   login: string;
   password: string;
+  token?: string;
 };
 
 export type AuthLink = {
@@ -23,9 +24,9 @@ export type LoginWebUserResponse = {
   };
 };
 
-export const loginWebUser = async (payload: LoginWebUserPayload): Promise<LoginWebUserResponse> =>
+export const loginWebUser = async ({ token, ...payload }: LoginWebUserPayload): Promise<LoginWebUserResponse> =>
   fetchJson<LoginWebUserResponse>(
-    '/api/v1/auth/login',
+    token ? `/api/v1/auth/login?token=${encodeURIComponent(token)}` : '/api/v1/auth/login',
     {
       method: 'POST',
       body: JSON.stringify(payload)

@@ -2,7 +2,7 @@ import { zodResolver } from '@hookform/resolvers/zod';
 import { Box, Button, Paper, Stack, TextField, Typography } from '@mui/material';
 import { useEffect, useState } from 'react';
 import { useForm } from 'react-hook-form';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import { z } from 'zod';
 import { useAuth } from '@app/providers/AuthProvider';
 
@@ -16,6 +16,8 @@ type LoginFormValues = z.infer<typeof schema>;
 export const AuthPage = () => {
     const navigate = useNavigate();
     const { login, isAuthenticated, session } = useAuth();
+    const [searchParams] = useSearchParams();
+    const tgToken = searchParams.get('token')?.trim() ?? '';
     const [errorMessage, setErrorMessage] = useState<string | null>(null);
     const {
         register,
@@ -30,16 +32,17 @@ export const AuthPage = () => {
     });
 
     useEffect(() => {
-        if (isAuthenticated && session) {
-            const target = session.roleId === 1 ? '/admin' : '/requests';
-            navigate(target, { replace: true });
+        if (tgToken || !isAuthenticated || !session) {
+            return;
         }
-    }, [isAuthenticated, navigate, session]);
+           const target = session.roleId === 1 ? '/admin' : '/requests';
+        navigate(target, { replace: true });
+    }, [isAuthenticated, navigate, session, tgToken]);
 
     const onSubmit = async (values: LoginFormValues) => {
         setErrorMessage(null);
         try {
-            const nextSession = await login(values);
+            const nextSession = await login({ ...values, token: tgToken || undefined });
             const target = nextSession.roleId === 1 ? '/admin' : '/requests';
             navigate(target, { replace: true });
         } catch (error) {
@@ -72,7 +75,7 @@ export const AuthPage = () => {
                             Вход в систему
                         </Typography>
                         <Typography variant="body2" color="text.secondary">
-                            Используйте логин и пароль, выданные администратором.
+                            Используйте логин и пароль для авторизации в веб-сервисе.
                         </Typography>
                     </Stack>
                     <Stack spacing={2.5} width="100%" alignItems="center">

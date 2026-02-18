@@ -24,6 +24,7 @@ export const App = () => {
     <>
       <Routes location={backgroundLocation ?? location}>
         <Route path="/login" element={<AuthPage />} />
+        <Route path="/auth/login" element={<AuthPage />} />
         <Route path="/auth/tg/register" element={<TgRegisterPage />} />
         <Route element={<ProtectedRoute />}>
           <Route element={<AppLayout />}>
