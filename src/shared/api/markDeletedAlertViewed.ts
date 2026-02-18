@@ -18,7 +18,7 @@ export const markDeletedAlertViewed = async (
   payload: MarkDeletedAlertViewedPayload
 ): Promise<MarkDeletedAlertViewedResponse> => {
   return fetchJson<MarkDeletedAlertViewedResponse>(
-    '/api/web/requests/deleted-alerts/viewed',
+    '/api/v1/requests/deleted-alerts/viewed',
     {
       method: 'PATCH',
       body: JSON.stringify(payload)

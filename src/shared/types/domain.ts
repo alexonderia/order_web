@@ -9,6 +9,7 @@ export type RequestStats = {
   count_deleted_alert: number;
   count_accepted_total: number;
   count_rejected_total: number;
+  count_chat_alert?: number;
 };
 
 export type FileEntity = {

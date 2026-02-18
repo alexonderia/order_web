@@ -2,7 +2,6 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import { Box, Typography } from '@mui/material';
 import { useNavigate } from 'react-router-dom';
 import { RequestsTable } from '@features/requests/components/RequestsTable';
-import { getOffers } from '@shared/api/getOffers';
 import { getRequests } from '@shared/api/getRequests';
 import type { RequestWithOfferStats } from '@shared/api/getRequests';
 import { getOpenRequests } from '@shared/api/getOpenRequests';
@@ -14,7 +13,6 @@ import { hasAvailableAction } from '@shared/auth/availableActions';
 export const RequestsPage = () => {
     const { session } = useAuth();
     const navigate = useNavigate();
-    const userLogin = session?.login ?? '';
     const [requests, setRequests] = useState<RequestWithOfferStats[]>([]);
     const [ownerOptions, setOwnerOptions] = useState<Array<{ id: string; label: string }>>([]);
     const [isLoading, setIsLoading] = useState(false);
@@ -80,46 +78,21 @@ export const RequestsPage = () => {
     }, [fetchOwners]);
     
     useEffect(() => {
-        let isMounted = true;
-        const loadChatAlerts = async () => {
-            if (canLoadOnlyOpenRequests) {
-                if (isMounted) {
-                    setChatAlertsMap({});
-                }
-                return;
+        if (canLoadOnlyOpenRequests) {
+            setChatAlertsMap({});
+            return;
+        }
+
+        const nextAlerts = requests.reduce<Record<number, number>>((acc, request) => {
+            const alertCount = request.count_chat_alert ?? 0;
+            if (alertCount > 0) {
+                acc[request.id] = alertCount;
             }
-            
-            if (requests.length === 0) {
-                if (isMounted) {
-                    setChatAlertsMap({});
-                }
-                return;
-            }
-            const results = await Promise.allSettled(
-                requests.map((request) => getOffers({ requestId: request.id, userLogin }))
-            );
-            const nextAlerts: Record<number, number> = {};
-            results.forEach((result, index) => {
-                if (result.status !== 'fulfilled') {
-                    return;
-                }
-                const offerList = result.value.offers ?? [];
-                const alertCount = offerList.filter(
-                    (offer) => offer.offer_chat_stats?.status_web && !offer.offer_chat_stats?.status_tg
-                ).length;
-                if (alertCount > 0) {
-                    nextAlerts[requests[index].id] = alertCount;
-                }
-            });
-            if (isMounted) {
-                setChatAlertsMap(nextAlerts);
-            }
-        };
-        void loadChatAlerts();
-        return () => {
-            isMounted = false;
-        };
-    }, [canLoadOnlyOpenRequests, requests, userLogin]);
+        return acc;
+        }, {});
+
+        setChatAlertsMap(nextAlerts);
+    }, [canLoadOnlyOpenRequests, requests]);
 
     const handleOwnerChange = async (request: RequestWithOfferStats, ownerUserId: string) => {
         if (!canEditOwner || ownerUserId === request.id_user) {

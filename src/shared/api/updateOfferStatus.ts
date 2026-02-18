@@ -1,13 +1,22 @@
-import { fetchJson  } from './client';
+import { fetchJson } from './client';
 
 export type UpdateOfferStatusPayload = {
-  id_user: string;
   offer_id: number;
   status: string;
 };
 
+type UpdateOfferStatusApiResponse = {
+  data?: {
+    offer_id?: number;
+    status?: string;
+  };
+  offer?: {
+    id?: number;
+    status?: string;
+  };
+};
+
 export type UpdateOfferStatusResponse = {
-  status: 'ok';
   offer: {
     id: number;
     status: string;
@@ -17,12 +26,18 @@ export type UpdateOfferStatusResponse = {
 export const updateOfferStatus = async (
   payload: UpdateOfferStatusPayload
 ): Promise<UpdateOfferStatusResponse> => {
-  return fetchJson<UpdateOfferStatusResponse>(
-    '/api/web/offers/status',
+  const response = await fetchJson<UpdateOfferStatusApiResponse>(
+    `/api/v1/offers/${payload.offer_id}/status`,
     {
       method: 'PATCH',
-      body: JSON.stringify(payload)
+      body: JSON.stringify({ status: payload.status })
     },
     'Ошибка обновления статуса оффера'
   );
+  return {
+    offer: {
+      id: response.data?.offer_id ?? response.offer?.id ?? payload.offer_id,
+      status: response.data?.status ?? response.offer?.status ?? payload.status
+    }
+  };
 };

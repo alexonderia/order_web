@@ -39,7 +39,7 @@ const toRequestPath = (path: string) => {
 
 export const getDownloadUrl = (fileId?: number | null, filePath?: string | null): string | null => {
   if (fileId) {
-    return buildAbsoluteUrl(`/api/web/files/${fileId}/download`);
+    return buildAbsoluteUrl(`/api/v1/files/${fileId}/download`);
   }
 
   if (filePath) {

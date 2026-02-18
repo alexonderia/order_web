@@ -332,7 +332,6 @@ export const RequestDetailsPage = () => {
 
         try {
             const response = await updateOfferStatus({
-                id_user: userLogin,
                 offer_id: offerId,
                 status: value
             });

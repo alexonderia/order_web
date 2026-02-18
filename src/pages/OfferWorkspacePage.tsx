@@ -362,7 +362,6 @@ export const OfferWorkspacePage = () => {
 
     try {
       const response = await updateOfferStatus({
-        id_user: session.login,
         offer_id: offerId,
         status: nextStatus
       });

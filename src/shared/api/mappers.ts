@@ -28,5 +28,6 @@ export const mapRequestEntityToSummary = (item: RequestEntity): RequestWithOffer
   count_deleted_alert: item.stats.count_deleted_alert,
   count_accepted_total: item.stats.count_accepted_total,
   count_rejected_total: item.stats.count_rejected_total,
+  count_chat_alert: item.stats.count_chat_alert,
   files: item.files
 });
