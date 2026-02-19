@@ -165,6 +165,7 @@ export const RequestsPage = () => {
                 ownerOptions={ownerOptions}
                 canEditOwner={canEditOwner}
                 onOwnerChange={(request, ownerUserId) => void handleOwnerChange(request, ownerUserId)}
+                isContractor={isContractor}
             />
         </Box>
     );

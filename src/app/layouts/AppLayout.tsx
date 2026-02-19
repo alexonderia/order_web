@@ -85,7 +85,7 @@ export const AppLayout = () => {
       >
         <Stack
           component="aside"
-          justifyContent="flex-start"
+          justifyContent="space-between"
           sx={(theme) => ({
             borderRadius: 3,
             backgroundColor: theme.palette.background.paper,
@@ -96,7 +96,6 @@ export const AppLayout = () => {
           {sidebarButtons}
 
           <Stack spacing={1.2}>
-            <ProfileButton />
             <Button variant="outlined" onClick={logout} sx={{ height: 44 }}>
               Выйти
             </Button>

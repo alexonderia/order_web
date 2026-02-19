@@ -1,6 +1,13 @@
 import { fetchJson } from './client';
-import type { GetRequestsResponse } from './getRequests';
+import type { ContractorRequestOffer, GetRequestsResponse } from './getRequests';
 import type { FileEntity } from '@shared/types/domain';
+
+type ApiContractorRequestOffer = {
+  id?: number;
+  offer_id?: number;
+  status: string;
+  unread_messages_count: number;
+};
 
 type ApiResponse = {
   data: {
@@ -16,9 +23,17 @@ type ApiResponse = {
       owner_user_id: string;
       chosen_offer_id: number | null;
       files: FileEntity[];
+      offers: ContractorRequestOffer[];
     }>;
   };
 };
+
+const mapContractorOffer = (offer: ApiContractorRequestOffer): ContractorRequestOffer => ({
+  id: offer.id ?? offer.offer_id ?? 0,
+  status: offer.status,
+  unread_messages_count: offer.unread_messages_count
+});
+
 
 export const getOfferedRequests = async (): Promise<GetRequestsResponse> => {
   const response = await fetchJson<ApiResponse>(
@@ -39,7 +54,8 @@ export const getOfferedRequests = async (): Promise<GetRequestsResponse> => {
       description: item.description,
       created_at: item.created_at,
       updated_at: item.updated_at,
-      files: item.files
+      files: item.files,
+      offers: item.offers.map(mapContractorOffer)
     }))
   };
 };

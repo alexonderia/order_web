@@ -220,7 +220,7 @@ export const OfferWorkspacePage = () => {
 
   useEffect(() => {
     void loadWorkspace();
-    }, [loadWorkspace]);
+  }, [loadWorkspace]);
 
   useEffect(() => {
     if (!selectedOfferId) {
@@ -268,6 +268,7 @@ export const OfferWorkspacePage = () => {
     () => sortedOffers.find((item) => item.offer_id === selectedOfferId) ?? sortedOffers[0] ?? workspace?.offer ?? null,
     [selectedOfferId, sortedOffers, workspace?.offer]
   );
+  const isSelectedOfferSubmitted = selectedOffer?.status === 'submitted';
 
   const statusConfig = useMemo(
     () => statusOptions.find((item) => item.value === workspace?.request.status) ?? statusOptions[0],
@@ -278,14 +279,18 @@ export const OfferWorkspacePage = () => {
   const isEconomist = session?.roleId === 1 || session?.roleId === 3 || session?.roleId === 4;
 
   const canUpload = useMemo(
-    () => hasAvailableAction({ availableActions }, `/api/v1/offers/${selectedOfferId}/files`, 'POST'),
-    [availableActions, selectedOfferId]
+    () =>
+      hasAvailableAction({ availableActions }, `/api/v1/offers/${selectedOfferId}/files`, 'POST') &&
+      (!isContractor || isSelectedOfferSubmitted),
+    [availableActions, isContractor, isSelectedOfferSubmitted, selectedOfferId]
   );
   const canDeleteFile = useMemo(
     () =>
-      hasAvailableAction({ availableActions }, `/api/v1/offers/${selectedOfferId}/files/{file_id}`, 'DELETE') ||
-      hasAvailableAction({ availableActions }, `/api/v1/offers/${selectedOfferId}/files/1`, 'DELETE'),
-    [availableActions, selectedOfferId]
+      (
+        hasAvailableAction({ availableActions }, `/api/v1/offers/${selectedOfferId}/files/{file_id}`, 'DELETE') ||
+        hasAvailableAction({ availableActions }, `/api/v1/offers/${selectedOfferId}/files/1`, 'DELETE')
+      ) && (!isContractor || isSelectedOfferSubmitted),
+    [availableActions, isContractor, isSelectedOfferSubmitted, selectedOfferId]
   );
   const canSendMessage = useMemo(
     () => hasAvailableAction({ availableActions }, `/api/v1/offers/${selectedOfferId}/messages`, 'POST'),
@@ -401,11 +406,21 @@ export const OfferWorkspacePage = () => {
 
   const handleOfferStatusChange = async (nextStatus: 'accepted' | 'rejected' | '') => {
     if (!workspace || !selectedOffer || !nextStatus || !session?.login) {
-      setOfferDecisionStatus(nextStatus); 
+      setOfferDecisionStatus(nextStatus);
       return;
     }
 
     const previousStatus = offerDecisionStatus;
+    const confirmMessage =
+      nextStatus === 'accepted'
+        ? 'Если принять этот оффер, остальные офферы по заявке автоматически получат статус «Отказано». Продолжить?'
+        : 'Вы уверены, что хотите изменить статус оффера на «Отказано»?';
+
+    const isConfirmed = window.confirm(confirmMessage);
+    if (!isConfirmed) {
+      setOfferDecisionStatus(previousStatus);
+      return;
+    }
     setOfferDecisionStatus(nextStatus);
     setErrorMessage(null);
     setIsUpdatingOfferStatus(true);
@@ -420,11 +435,11 @@ export const OfferWorkspacePage = () => {
         prev
           ? {
             ...prev,
-              offer: prev.offer.offer_id === selectedOffer.offer_id ? { ...prev.offer, status: response.offer.status } : prev.offer,
-              offers: prev.offers.map((item) =>
-                item.offer_id === selectedOffer.offer_id ? { ...item, status: response.offer.status } : item
-              )
-            }
+            offer: prev.offer.offer_id === selectedOffer.offer_id ? { ...prev.offer, status: response.offer.status } : prev.offer,
+            offers: prev.offers.map((item) =>
+              item.offer_id === selectedOffer.offer_id ? { ...item, status: response.offer.status } : item
+            )
+          }
           : prev
       );
     } catch (error) {
@@ -440,7 +455,7 @@ export const OfferWorkspacePage = () => {
       return;
     }
 
-    const isConfirmed = window.confirm('Вы уверены, что хотите удалить отклик? После удаления изменить статус повторно нельзя.');
+    const isConfirmed = window.confirm('Вы уверены, что хотите удалить отклик? После удаления отменить действие нельзя, а чат с экономистом будет заблокирован.');
     if (!isConfirmed) {
       return;
     }
@@ -457,11 +472,11 @@ export const OfferWorkspacePage = () => {
         prev
           ? {
             ...prev,
-              offer: prev.offer.offer_id === selectedOffer.offer_id ? { ...prev.offer, status: response.offer.status } : prev.offer,
-              offers: prev.offers.map((item) =>
-                item.offer_id === selectedOffer.offer_id ? { ...item, status: response.offer.status } : item
-              )
-            }
+            offer: prev.offer.offer_id === selectedOffer.offer_id ? { ...prev.offer, status: response.offer.status } : prev.offer,
+            offers: prev.offers.map((item) =>
+              item.offer_id === selectedOffer.offer_id ? { ...item, status: response.offer.status } : item
+            )
+          }
           : prev
       );
     } catch (error) {
@@ -721,7 +736,7 @@ export const OfferWorkspacePage = () => {
           </Stack>
         ) : null}
 
-          {sortedOffers.map((offerItem) => {
+        {sortedOffers.map((offerItem) => {
           const isCurrent = offerItem.offer_id === selectedOffer.offer_id;
           const itemBadgeStyle = getOfferStatusBadgeStyle(offerItem.status ?? null);
           return (
@@ -766,9 +781,7 @@ export const OfferWorkspacePage = () => {
                     {itemBadgeStyle.icon}
                   </Box>
                 )}
-                <Button size="small" variant={isCurrent ? 'contained' : 'outlined'} onClick={() => setSelectedOfferId(offerItem.offer_id)}>
-                  {isCurrent ? 'Активный отклик' : 'Открыть в чате'}
-                </Button>
+
                 {canEditOfferStatus && isCurrent ? (
                   <Select
                     size="small"
@@ -801,6 +814,9 @@ export const OfferWorkspacePage = () => {
                     {offerItem.status === 'deleted' ? 'Отклик удален' : 'Удалить отклик'}
                   </Button>
                 ) : null}
+                <Button size="small" variant={isCurrent ? 'contained' : 'outlined'} onClick={() => setSelectedOfferId(offerItem.offer_id)}>
+                  {isCurrent ? 'Активный отклик' : 'Открыть в чате'}
+                </Button>
               </Stack>
               <Stack spacing={1} sx={{ mb: 1.5 }}>
                 <Typography variant="body2">Создана: {formatDate(offerItem.created_at)}</Typography>
@@ -829,6 +845,7 @@ export const OfferWorkspacePage = () => {
                   {isUploading ? 'Загрузка...' : 'Прикрепить файл'}
                 </Button>
               ) : null}
+              
             </Paper>
           );
         })}

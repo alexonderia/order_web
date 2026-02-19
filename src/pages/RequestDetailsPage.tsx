@@ -115,6 +115,11 @@ export const RequestDetailsPage = () => {
     );
     const hasDeletedAlert = (requestDetails?.count_deleted_alert ?? 0) > 0;
     const hasFileChanges = deletedFileIds.length > 0 || Boolean(newFile);
+    const hasPendingChanges =
+        status !== baselineStatus ||
+        deadline !== baselineDeadline ||
+        ownerUserId !== baselineOwnerUserId ||
+        hasFileChanges;
     const canEditRequest = useMemo(
         () =>
             hasAvailableAction(
@@ -231,6 +236,49 @@ export const RequestDetailsPage = () => {
         void fetchOwners();
     }, [fetchOwners]);
 
+     const getSaveValidationError = (currentStatus: RequestStatus, currentDeadline: string) => {
+        const statusChanged = currentStatus !== baselineStatus;
+        const ownerChanged = ownerUserId !== baselineOwnerUserId;
+        const isReopen = statusChanged && baselineStatus !== 'open' && currentStatus === 'open';
+        const deadlineChanged = currentDeadline !== baselineDeadline;
+
+        if (!statusChanged && !deadlineChanged && !ownerChanged && !hasFileChanges) {
+            return 'Нет изменений для сохранения';
+        }
+
+        if ((deadlineChanged || isReopen) && !currentDeadline) {
+            return 'При повторном открытии заявки необходимо установить дедлайн';
+        }
+
+        if (currentDeadline && currentDeadline < todayDate) {
+            return 'Дедлайн не может быть раньше текущей даты';
+        }
+
+        if (deadlineChanged && currentStatus !== 'open' && currentStatus !== 'review') {
+            return 'Для изменения дедлайна заявку необходимо повторно открыть';
+        }
+
+        if (currentStatus === 'closed') {
+            const hasAcceptedOffer = offers.some((offer) => offer.status === 'accepted');
+            if (!hasAcceptedOffer) {
+                return 'Нельзя закрыть заявку без оффера со статусом "Принят"';
+            }
+        }
+
+        if (ownerChanged && !canEditOwner) {
+            return 'Изменение ответственного доступно только суперадмину и ведущему экономисту';
+        }
+
+        if (ownerChanged && ownerUserId && !ownerOptions.some((option) => option.id === ownerUserId)) {
+            return 'Назначить ответственным можно только ведущего экономиста или экономиста';
+        }
+
+        return null;
+    };
+
+    const effectiveDeadlineForValidation = status === 'review' ? todayDate : deadline;
+    const saveValidationError = getSaveValidationError(status, effectiveDeadlineForValidation);
+
     const handleSave = async () => {
         const currentRequest = requestDetails;
         if (!currentRequest || !canEditRequest) {
@@ -239,54 +287,15 @@ export const RequestDetailsPage = () => {
 
         const statusChanged = status !== baselineStatus;
         const ownerChanged = ownerUserId !== baselineOwnerUserId;
-        const isReopen = statusChanged && baselineStatus !== 'open' && status === 'open';
         let effectiveDeadline = deadline;
         if (status === 'review') {
             effectiveDeadline = todayDate;
         }
         const deadlineChanged = effectiveDeadline !== baselineDeadline;
 
-        if (!statusChanged && !deadlineChanged && !ownerChanged && !hasFileChanges) {
-            setErrorMessage('Нет изменений для сохранения');
-            setSuccessMessage(null);
-            return;
-        }
-
-        if ((deadlineChanged || isReopen) && !effectiveDeadline) {
-            setErrorMessage('При повторном открытии заявки необходимо установить дедлайн');
-            setSuccessMessage(null);
-            return;
-        }
-
-        if (effectiveDeadline && effectiveDeadline < todayDate) {
-            setErrorMessage('Дедлайн не может быть раньше текущей даты');
-            setSuccessMessage(null);
-            return;
-        }
-
-        if (deadlineChanged && status !== 'open' && status !== 'review') {
-            setErrorMessage('Для изменения дедлайна заявку необходимо повторно открыть');
-            setSuccessMessage(null);
-            return;
-        }
-
-        if (status === 'closed') {
-            const hasAcceptedOffer = offers.some((offer) => offer.status === 'accepted');
-            if (!hasAcceptedOffer) {
-                setErrorMessage('Нельзя закрыть заявку без оффера со статусом accepted');
-                setSuccessMessage(null);
-                return;
-            }
-        }
-
-        if (ownerChanged && !canEditOwner) {
-            setErrorMessage('Изменение ответственного доступно только суперадмину и ведущему экономисту');
-            setSuccessMessage(null);
-            return;
-        }
-
-        if (ownerChanged && ownerUserId && !ownerOptions.some((option) => option.id === ownerUserId)) {
-            setErrorMessage('Назначить ответственным можно только ведущего экономиста или экономиста');
+        const validationError = getSaveValidationError(status, effectiveDeadline);
+        if (validationError) {
+            setErrorMessage(validationError);
             setSuccessMessage(null);
             return;
         }
@@ -326,6 +335,21 @@ export const RequestDetailsPage = () => {
         }));
 
         if (!value) {
+            return;
+        }
+
+        const confirmMessage =
+            value === 'accepted'
+                ? 'Если принять этот оффер, остальные офферы по заявке автоматически получат статус «Отказано». Продолжить?'
+                : 'Вы уверены, что хотите изменить статус оффера на «Отказано»?';
+
+        const isConfirmed = window.confirm(confirmMessage);
+
+        if (!isConfirmed) {
+            setOffersStatusMap((prev) => ({
+                ...prev,
+                [offerId]: previousStatus
+            }));
             return;
         }
 
@@ -437,6 +461,20 @@ export const RequestDetailsPage = () => {
         { id: 'updated', label: 'Последнее изменение', value: formatDate(requestDetails?.updated_at ?? null) }
     ];
 
+    useEffect(() => {
+        if (!hasPendingChanges) {
+            return;
+        }
+
+        const handleBeforeUnload = (event: BeforeUnloadEvent) => {
+            event.preventDefault();
+            event.returnValue = '';
+        };
+
+        window.addEventListener('beforeunload', handleBeforeUnload);
+        return () => window.removeEventListener('beforeunload', handleBeforeUnload);
+    }, [hasPendingChanges]);
+
     if (!requestDetails) {
         return (
             <Box>
@@ -476,6 +514,14 @@ export const RequestDetailsPage = () => {
                         value={status}
                         onChange={(event) => {
                             const nextStatus = event.target.value as RequestStatus;
+                            if (nextStatus !== status) {
+                                const isConfirmed = window.confirm(
+                                    `Вы уверены, что хотите изменить статус заявки на «${statusOptions.find((option) => option.value === nextStatus)?.label ?? nextStatus}»?`
+                                );
+                                if (!isConfirmed) {
+                                    return;
+                                }
+                            }
                             setStatus(nextStatus);
                             if (nextStatus === 'review') {
                                 setDeadline(todayDate);
@@ -499,11 +545,16 @@ export const RequestDetailsPage = () => {
                     variant="contained"
                     sx={{ paddingX: 4, boxShadow: 'none', whiteSpace: 'nowrap', '&:hover': { boxShadow: 'none' } }}
                     onClick={() => void handleSave()}
-                    disabled={isSaving || !canEditRequest}
+                    disabled={isSaving || !canEditRequest || !hasPendingChanges || Boolean(saveValidationError)}
                 >
                     {isSaving ? 'Сохранение...' : 'Сохранить изменения'}
                 </Button>
             </Stack>
+            {hasPendingChanges && (
+                <Typography color="warning.main" sx={{ mb: 2 }}>
+                    Есть несохраненные изменения. При уходе со страницы они будут потеряны.
+                </Typography>
+            )}
             {errorMessage && (
                 <Typography color="error" sx={{ mb: 2 }}>
                     {errorMessage}

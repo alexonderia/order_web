@@ -3,7 +3,7 @@ import { alpha, useTheme } from '@mui/material/styles';
 import type { RequestWithOfferStats } from '@shared/api/getRequests';
 import { DataTable } from '@shared/components/DataTable';
 
-const columns = [
+const baseColumns = [
     { key: 'id', label: 'id', minWidth: 60, fraction: 0.45 },
     { key: 'description', label: 'Описание', minWidth: 200, fraction: 2.5 },
 
@@ -16,8 +16,10 @@ const columns = [
     { key: 'owner', label: 'Ответственный', minWidth: 160, fraction: 1.2 },
 
     { key: 'updated', label: 'Последнее обновление', minWidth: 150, fraction: 1.3 },
-    { key: 'notification', label: 'Уведомление', minWidth: 200, fraction: 1.6 },
+    { key: 'notification', label: 'Уведомление', minWidth: 180, fraction: 1.6 }
 ];
+
+const contractorOffersColumn = { key: 'contractorOffers', label: 'Мои отклики', minWidth: 200, fraction: 1.8 };
 
 type OwnerOption = {
     id: string;
@@ -32,6 +34,7 @@ type RequestsTableProps = {
     ownerOptions?: OwnerOption[];
     canEditOwner?: boolean;
     onOwnerChange?: (request: RequestWithOfferStats, ownerUserId: string) => void;
+    isContractor?: boolean;
 };
 
 const formatDate = (value: string | null, withTime = false) => {
@@ -59,6 +62,38 @@ const formatDate = (value: string | null, withTime = false) => {
         };
 
     return new Intl.DateTimeFormat('ru-RU', options).format(date);
+};
+
+const getUnreadMessagesLabel = (count: number) => {
+    if (count <= 0) {
+        return null;
+    }
+
+    if (count === 1) {
+        return 'Новое сообщение';
+    }
+
+    return `Новых сообщений: ${count}`;
+};
+
+const getContractorOfferStatusMeta = (status: string) => {
+    if (status === 'submitted') {
+        return { label: 'на рассмотрении', color: '#2e7d32', background: '#e8f5e9' };
+    }
+
+    if (status === 'accepted') {
+        return { label: 'принято', color: '#1565c0', background: '#e3f2fd' };
+    }
+
+    if (status === 'rejected') {
+        return { label: 'отклонено', color: '#787878', background: '#f3f3f3' };
+    }
+
+    if (status === 'deleted') {
+        return { label: 'удалено', color: '#c62828', background: '#ffebee' };
+    }
+
+    return { label: status, color: '#455a64', background: '#eceff1' };
 };
 
 const NotificationContent = ({
@@ -203,11 +238,15 @@ export const RequestsTable = ({
     chatAlertsMap,
     ownerOptions = [],
     canEditOwner = false,
-    onOwnerChange
+    onOwnerChange,
+    isContractor = false
 }: RequestsTableProps) => {
     const theme = useTheme();
     const submittedColor = theme.palette.success.main;
     const deletedColor = theme.palette.error.main;
+    const columns = isContractor
+        ? [...baseColumns.slice(0, -1), contractorOffersColumn, baseColumns[baseColumns.length - 1]]
+        : baseColumns;
 
     return (
         <DataTable
@@ -219,40 +258,98 @@ export const RequestsTable = ({
             onRowClick={onRowClick}
             rowHoverOutlineColor={alpha(theme.palette.primary.main, 0.45)}
             storageKey="requests-table"
-            renderRow={(row) => [
-                <Typography variant="body2">{row.id}</Typography>,
-                <Typography variant="body2">{row.description ?? '-'}</Typography>,
-                <Typography variant="body2">{row.status_label ?? row.status ?? '-'}</Typography>,
-                <Typography variant="body2">{formatDate(row.deadline_at)}</Typography>,
-                <Typography variant="body2">{formatDate(row.created_at)}</Typography>,
-                <Typography variant="body2">{formatDate(row.closed_at)}</Typography>,
-                <Typography variant="body2">{row.id_offer ?? '-'}</Typography>,
-                canEditOwner ? (
-                    <Select
-                        size="small"
-                        value={row.id_user}
-                        onClick={(event) => event.stopPropagation()}
-                        onChange={(event) => onOwnerChange?.(row, event.target.value)}
-                        sx={{ minWidth: 150 }}
-                    >
-                        {ownerOptions.map((option) => (
-                            <MenuItem key={option.id} value={option.id}>
-                                {option.label}
-                            </MenuItem>
-                        ))}
-                    </Select>
-                ) : (
-                    <Typography variant="body2">{row.id_user}</Typography>
-                ),
-                <Typography variant="body2">{formatDate(row.updated_at, true)}</Typography>,
-                <NotificationContent
-                    countSubmitted={row.count_submitted ?? 0}
-                    countDeleted={row.count_deleted_alert ?? 0}
-                    countChatAlerts={chatAlertsMap?.[row.id] ?? row.count_chat_alert ?? 0}
-                    submittedColor={submittedColor}
-                    deletedColor={deletedColor}
-                />
-            ]}
+            renderRow={(row) => {
+                const contractorOffers = row.offers ?? [];
+                const contractorUnreadMessagesCount = contractorOffers.reduce(
+                    (acc, offer) => acc + (offer.unread_messages_count ?? 0),
+                    0
+                );
+
+                const rowCells = [
+                    <Typography variant="body2">{row.id}</Typography>,
+                    <Typography variant="body2">{row.description ?? '-'}</Typography>,
+                    <Typography variant="body2">{row.status_label ?? row.status ?? '-'}</Typography>,
+                    <Typography variant="body2">{formatDate(row.deadline_at)}</Typography>,
+                    <Typography variant="body2">{formatDate(row.created_at)}</Typography>,
+                    <Typography variant="body2">{formatDate(row.closed_at)}</Typography>,
+                    <Typography variant="body2">{row.id_offer ?? '-'}</Typography>,
+                    canEditOwner ? (
+                        <Select
+                            size="small"
+                            value={row.id_user}
+                            onClick={(event) => event.stopPropagation()}
+                            onChange={(event) => onOwnerChange?.(row, event.target.value)}
+                            sx={{ minWidth: 150 }}
+                        >
+                            {ownerOptions.map((option) => (
+                                <MenuItem key={option.id} value={option.id}>
+                                    {option.label}
+                                </MenuItem>
+                            ))}
+                        </Select>
+                    ) : (
+                        <Typography variant="body2">{row.id_user}</Typography>
+                    ),
+                    <Typography variant="body2">{formatDate(row.updated_at, true)}</Typography>
+                ];
+
+                if (isContractor) {
+                    rowCells.push(
+                        contractorOffers.length > 0 ? (
+                            <Stack spacing={0.75} alignItems="flex-start">
+                                {contractorOffers.map((offer) => {
+                                    const statusMeta = getContractorOfferStatusMeta(offer.status);
+
+                                    return (
+                                        <Chip
+                                            key={offer.id}
+                                            size="small"
+                                            label={`КП № ${offer.id} ${statusMeta.label}`}
+                                            sx={{
+                                                borderRadius: 999,
+                                                border: `1px solid ${statusMeta.color}`,
+                                                color: statusMeta.color,
+                                                backgroundColor: statusMeta.background,
+                                                fontWeight: 500,
+                                                '& .MuiChip-label': {
+                                                    px: 1.25
+                                                }
+                                            }}
+                                        />
+                                    );
+                                })}
+                            </Stack>
+                        ) : (
+                            <Typography variant="body2">-</Typography>
+                        )
+                    );
+                }
+
+                rowCells.push(
+                    isContractor ? (
+                        getUnreadMessagesLabel(contractorUnreadMessagesCount) ? (
+                            <Chip
+                                label={getUnreadMessagesLabel(contractorUnreadMessagesCount)}
+                                size="small"
+                                variant="outlined"
+                                sx={{ borderColor: theme.palette.primary.main, color: theme.palette.primary.main, fontWeight: 600 }}
+                            />
+                        ) : (
+                            <Typography variant="body2" color="text.secondary">-</Typography>
+                        )
+                    ) : (
+                        <NotificationContent
+                            countSubmitted={row.count_submitted ?? 0}
+                            countDeleted={row.count_deleted_alert ?? 0}
+                            countChatAlerts={chatAlertsMap?.[row.id] ?? row.count_chat_alert ?? 0}
+                            submittedColor={submittedColor}
+                            deletedColor={deletedColor}
+                        />
+                    )
+                );
+
+                return rowCells;
+            }}
         />
     );
 };

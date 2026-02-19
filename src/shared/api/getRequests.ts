@@ -4,6 +4,12 @@ import type { FileEntity, RequestEntity } from '@shared/types/domain';
 
 export type RequestFile = FileEntity;
 
+export type ContractorRequestOffer = {
+  id: number;
+  status: string;
+  unread_messages_count: number;
+};
+
 export type RequestWithOfferStats = {
   id: number;
   id_user: string;
@@ -21,6 +27,7 @@ export type RequestWithOfferStats = {
   count_rejected_total?: number;
   count_chat_alert?: number;
   files: RequestFile[];
+  offers?: ContractorRequestOffer[];
 };
 
 export type GetRequestsResponse = {
