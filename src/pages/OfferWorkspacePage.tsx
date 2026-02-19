@@ -35,6 +35,7 @@ import { findAvailableAction, hasAvailableAction } from '@shared/auth/availableA
 import type { AuthLink } from '@shared/api/loginWebUser';
 import { updateOfferStatus } from '@shared/api/updateOfferStatus';
 import { OfferWorkspaceChatPanel } from '@features/requests/components/OfferWorkspaceChatPanel';
+import { ProfileButton } from '@shared/components/ProfileButton';
 
 const statusOptions = [
   { value: 'open', label: 'Открыта', color: '#2e7d32' },
@@ -597,7 +598,7 @@ export const OfferWorkspacePage = () => {
             {isEconomist ? 'Назад' : 'К списку заявок'}
           </Button>
           <Stack direction="row" spacing={2} alignItems="center">
-            <Typography variant="h6">профиль</Typography>
+            <ProfileButton />
             <Button variant="outlined" onClick={logout}>
               Выйти
             </Button>

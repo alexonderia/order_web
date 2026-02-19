@@ -1,7 +1,8 @@
-import { Box, Button, Stack, Tab, Tabs, Typography } from '@mui/material';
+import { Box, Button, Stack, Tab, Tabs } from '@mui/material';
 import { NavLink, Outlet, useLocation, useNavigate, useSearchParams } from 'react-router-dom';
 import { useAuth } from '@app/providers/AuthProvider';
 import { hasAvailableAction } from '@shared/auth/availableActions';
+import { ProfileButton } from '@shared/components/ProfileButton';
 
 const navLinkStyles = {
   textDecoration: 'none'
@@ -84,7 +85,7 @@ export const AppLayout = () => {
       >
         <Stack
           component="aside"
-          justifyContent="space-between"
+          justifyContent="flex-start"
           sx={(theme) => ({
             borderRadius: 3,
             backgroundColor: theme.palette.background.paper,
@@ -94,9 +95,12 @@ export const AppLayout = () => {
         >
           {sidebarButtons}
 
-          <Button variant="outlined" onClick={logout} sx={{ height: 44 }}>
-            Выйти
-          </Button>
+          <Stack spacing={1.2}>
+            <ProfileButton />
+            <Button variant="outlined" onClick={logout} sx={{ height: 44 }}>
+              Выйти
+            </Button>
+          </Stack>
         </Stack>
         <Stack component="section" spacing={2} sx={{ minWidth: 0 }}>
           {isRequestsListPage && canCreateRequest ? (
@@ -164,7 +168,7 @@ export const AppLayout = () => {
             <Box />
           )}
           <Stack direction="row" spacing={3} alignItems="center">
-            <Typography variant="h6">профиль</Typography>
+            <ProfileButton />
             <Button variant="outlined" onClick={logout}>
               Выйти
             </Button>
