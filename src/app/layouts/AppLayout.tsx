@@ -1,5 +1,5 @@
-import { Box, Button, Stack, Typography } from '@mui/material';
-import { NavLink, Outlet, useLocation, useNavigate } from 'react-router-dom';
+import { Box, Button, Stack, Tab, Tabs, Typography } from '@mui/material';
+import { NavLink, Outlet, useLocation, useNavigate, useSearchParams } from 'react-router-dom';
 import { useAuth } from '@app/providers/AuthProvider';
 import { hasAvailableAction } from '@shared/auth/availableActions';
 
@@ -25,12 +25,20 @@ export const AppLayout = () => {
   const { session, logout } = useAuth();
   const location = useLocation();
   const navigate = useNavigate();
+
+  const [searchParams, setSearchParams] = useSearchParams();
+  const contractorTabParam = searchParams.get('tab');
+  const contractorTab: 'my' | 'open' = contractorTabParam === 'open' ? 'open' : 'my';
   const roleId = session?.roleId ?? null;
   const isSuperadmin = roleId === 1;
   const isRequestsListPage = location.pathname === '/requests';
   const isRequestDetailsPage = /^\/requests\/\d+$/.test(location.pathname);
   const isOfferWorkspacePage = /^\/offers\/\d+\/workspace$/.test(location.pathname);
   const canCreateRequest = hasAvailableAction(session, '/api/v1/requests', 'POST');
+  const isContractor = roleId === 5;
+  const canLoadOpenRequests = hasAvailableAction(session, '/api/v1/requests/open', 'GET');
+  const canLoadOfferedRequests = hasAvailableAction(session, '/api/v1/requests/offered', 'GET');
+  const canUseContractorTabs = isContractor && isRequestsListPage && canLoadOpenRequests && canLoadOfferedRequests;
 
   const sidebarButtons = (
     <Stack spacing={1.8}>
@@ -130,6 +138,20 @@ export const AppLayout = () => {
             >
               К списку заявок
             </Button>
+          ) : canUseContractorTabs ? (
+            <Tabs
+              value={contractorTab}
+              onChange={(_, value: 'my' | 'open') => {
+                setSearchParams((prev) => {
+                  const next = new URLSearchParams(prev);
+                  next.set('tab', value);
+                  return next;
+                }, { replace: true });
+              }}
+            >
+              <Tab value="my" label="Мои заявки" />
+              <Tab value="open" label="Актуальные заявки" />
+            </Tabs>
           ) : isRequestsListPage && canCreateRequest ? (
             <Button
               variant="contained"

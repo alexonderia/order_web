@@ -30,7 +30,7 @@ export type RequestEntity = {
   closed_at: string | null;
   owner_user_id: string;
   chosen_offer_id: EntityId | null;
-  stats: RequestStats;
+  stats?: RequestStats;
   files: FileEntity[];
 };
 

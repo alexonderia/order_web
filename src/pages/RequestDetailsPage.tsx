@@ -85,7 +85,6 @@ export const RequestDetailsPage = () => {
     const { session } = useAuth();
     const requestFromLocation = (location.state as { request?: RequestWithOfferStats } | null)?.request;
     const requestId = Number(id ?? requestFromLocation?.id ?? 0);
-    const userLogin = session?.login ?? '';
 
     const [requestDetails, setRequestDetails] = useState<RequestDetails | null>(null);
     const [status, setStatus] = useState<RequestStatus>('open');
@@ -365,7 +364,6 @@ export const RequestDetailsPage = () => {
         setErrorMessage(null);
         try {
             const response = await markDeletedAlertViewed({
-                id_user: userLogin,
                 request_id: requestDetails.id
             });
             setRequestDetails((prev) => {
@@ -439,7 +437,7 @@ export const RequestDetailsPage = () => {
         { id: 'updated', label: 'Последнее изменение', value: formatDate(requestDetails?.updated_at ?? null) }
     ];
 
-    if (!requestDetails || !userLogin) {
+    if (!requestDetails) {
         return (
             <Box>
                 <Typography variant="h6" mb={2}>

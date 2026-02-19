@@ -24,10 +24,10 @@ export const mapRequestEntityToSummary = (item: RequestEntity): RequestWithOffer
   description: item.description,
   created_at: item.created_at,
   updated_at: item.updated_at,
-  count_submitted: item.stats.count_submitted,
-  count_deleted_alert: item.stats.count_deleted_alert,
-  count_accepted_total: item.stats.count_accepted_total,
-  count_rejected_total: item.stats.count_rejected_total,
-  count_chat_alert: item.stats.count_chat_alert,
+  count_submitted: item.stats?.count_submitted ?? 0,
+  count_deleted_alert: item.stats?.count_deleted_alert ?? 0,
+  count_accepted_total: item.stats?.count_accepted_total ?? 0,
+  count_rejected_total: item.stats?.count_rejected_total ?? 0,
+  count_chat_alert: item.stats?.count_chat_alert ?? 0,
   files: item.files
 });

@@ -1,8 +1,9 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { Box, Typography } from '@mui/material';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import { RequestsTable } from '@features/requests/components/RequestsTable';
 import { getRequests } from '@shared/api/getRequests';
+import { getOfferedRequests } from '@shared/api/getOfferedRequests';
 import type { RequestWithOfferStats } from '@shared/api/getRequests';
 import { getOpenRequests } from '@shared/api/getOpenRequests';
 import { getRequestEconomists } from '@shared/api/getRequestEconomists';
@@ -18,11 +19,22 @@ export const RequestsPage = () => {
     const [isLoading, setIsLoading] = useState(false);
     const [errorMessage, setErrorMessage] = useState<string | null>(null);
     const [chatAlertsMap, setChatAlertsMap] = useState<Record<number, number>>({});
+    const [searchParams] = useSearchParams();
+    const contractorTabParam = searchParams.get('tab');
+    const contractorTab: 'my' | 'open' = contractorTabParam === 'open' ? 'open' : 'my';
     const pollIntervalMs = 10000;
-    const canLoadOnlyOpenRequests = useMemo(
-        () => session?.roleId === 5 && hasAvailableAction(session, '/api/v1/requests/open', 'GET'),
+    const isContractor = session?.roleId === 5;
+    const canLoadOpenRequests = useMemo(
+        () => hasAvailableAction(session, '/api/v1/requests/open', 'GET'),
         [session]
     );
+    const canLoadMyRequests = useMemo(
+        () => hasAvailableAction(session, '/api/v1/requests/offered', 'GET'),
+        [session]
+    );
+    const canUseContractorTabs = isContractor && canLoadOpenRequests && canLoadMyRequests;
+    const shouldLoadOnlyOpenRequests = isContractor && !canUseContractorTabs && canLoadOpenRequests;
+    const shouldLoadOpenRequests = shouldLoadOnlyOpenRequests || (canUseContractorTabs && contractorTab === 'open');
 
 
     const canEditOwner = useMemo(() => session?.roleId === 1 || session?.roleId === 3, [session?.roleId]);
@@ -34,7 +46,9 @@ export const RequestsPage = () => {
             }
             setErrorMessage(null);
             try {
-                const data = canLoadOnlyOpenRequests ? await getOpenRequests() : await getRequests();
+                const data = isContractor
+                    ? (shouldLoadOpenRequests ? await getOpenRequests() : await getOfferedRequests())
+                    : await getRequests();
                 setRequests(data.requests);
             } catch (error) {
                 setErrorMessage(error instanceof Error ? error.message : 'Ошибка загрузки заявок');
@@ -44,7 +58,7 @@ export const RequestsPage = () => {
                 }
             }
         },
-        [canLoadOnlyOpenRequests]
+        [isContractor, shouldLoadOpenRequests]
     );
 
     const fetchOwners = useCallback(async () => {
@@ -78,7 +92,7 @@ export const RequestsPage = () => {
     }, [fetchOwners]);
     
     useEffect(() => {
-        if (canLoadOnlyOpenRequests) {
+        if (shouldLoadOpenRequests) {
             setChatAlertsMap({});
             return;
         }
@@ -92,7 +106,7 @@ export const RequestsPage = () => {
         }, {});
 
         setChatAlertsMap(nextAlerts);
-    }, [canLoadOnlyOpenRequests, requests]);
+    }, [requests, shouldLoadOpenRequests]);
 
     const handleOwnerChange = async (request: RequestWithOfferStats, ownerUserId: string) => {
         if (!canEditOwner || ownerUserId === request.id_user) {
@@ -143,8 +157,8 @@ export const RequestsPage = () => {
                 isLoading={isLoading}
                 onRowClick={(request) =>
                     navigate(
-                        canLoadOnlyOpenRequests ? `/requests/${request.id}/contractor` : `/requests/${request.id}`,
-                        canLoadOnlyOpenRequests ? undefined : { state: { request } }
+                        isContractor ? `/requests/${request.id}/contractor` : `/requests/${request.id}`,
+                        isContractor ? undefined : { state: { request } }
                     )
                 }
                 chatAlertsMap={chatAlertsMap}

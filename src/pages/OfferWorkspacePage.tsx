@@ -262,6 +262,10 @@ export const OfferWorkspacePage = () => {
     () => session?.roleId === 1 || session?.roleId === 3 || session?.roleId === 4,
     [session?.roleId]
   );
+  const canDeleteOwnOffer = useMemo(
+    () => hasAvailableAction({ availableActions }, `/api/v1/offers/${offerId}/status`, 'PATCH'),
+    [availableActions, offerId]
+  );
 
   useEffect(() => {
     const next = workspace?.offer.status;
@@ -380,6 +384,42 @@ export const OfferWorkspacePage = () => {
     } catch (error) {
       setOfferDecisionStatus(previousStatus);
       setErrorMessage(error instanceof Error ? error.message : 'Не удалось обновить статус оффера');
+    } finally {
+      setIsUpdatingOfferStatus(false);
+    }
+  };
+
+  const handleDeleteOffer = async () => {
+    if (!workspace || workspace.offer.status === 'deleted') {
+      return;
+    }
+
+    const isConfirmed = window.confirm('Вы уверены, что хотите удалить отклик? После удаления изменить статус повторно нельзя.');
+    if (!isConfirmed) {
+      return;
+    }
+
+    setErrorMessage(null);
+    setIsUpdatingOfferStatus(true);
+    try {
+      const response = await updateOfferStatus({
+        offer_id: offerId,
+        status: 'deleted'
+      });
+
+      setWorkspace((prev) =>
+        prev
+          ? {
+            ...prev,
+            offer: {
+              ...prev.offer,
+              status: response.offer.status
+            }
+          }
+          : prev
+      );
+    } catch (error) {
+      setErrorMessage(error instanceof Error ? error.message : 'Не удалось удалить отклик');
     } finally {
       setIsUpdatingOfferStatus(false);
     }
@@ -631,6 +671,17 @@ export const OfferWorkspacePage = () => {
                   </MenuItem>
                 ))}
               </Select>
+            ) : null}
+            {isContractor && canDeleteOwnOffer ? (
+              <Button
+                variant="outlined"
+                color="error"
+                size="small"
+                disabled={isUpdatingOfferStatus || workspace.offer.status === 'deleted'}
+                onClick={() => void handleDeleteOffer()}
+              >
+                {workspace.offer.status === 'deleted' ? 'Отклик удален' : 'Удалить отклик'}
+              </Button>
             ) : null}
           </Stack>
           <Stack spacing={1} sx={{ mb: 1.5 }}>

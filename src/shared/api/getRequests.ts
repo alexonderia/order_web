@@ -15,10 +15,10 @@ export type RequestWithOfferStats = {
   description: string | null;
   created_at: string;
   updated_at: string;
-  count_submitted: number;
-  count_deleted_alert: number;
-  count_accepted_total: number;
-  count_rejected_total: number;
+  count_submitted?: number;
+  count_deleted_alert?: number;
+  count_accepted_total?: number;
+  count_rejected_total?: number;
   count_chat_alert?: number;
   files: RequestFile[];
 };
