@@ -54,6 +54,9 @@ const offerDecisionOptions = [
   { value: 'rejected', label: 'Отказано' }
 ] as const;
 
+const workspacePollIntervalMs = 7000;
+const messagesPollIntervalMs = 7000;
+
 const getOfferStatusBadgeStyle = (status: string | null) => {
   if (status === 'accepted') {
     return {
@@ -133,6 +136,7 @@ export const OfferWorkspacePage = () => {
   const navigate = useNavigate();
   const offerId = Number(id ?? 0);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
+  const contractorInfoRef = useRef<OfferContractorInfo | null>(null);
 
   const [workspace, setWorkspace] = useState<OfferWorkspace | null>(null);
   const [contractorInfo, setContractorInfo] = useState<OfferContractorInfo | null>(null);
@@ -218,6 +222,41 @@ export const OfferWorkspacePage = () => {
     }
   }, [loadMessages, offerId]);
 
+  const refreshWorkspace = useCallback(async (targetOfferId: number) => {
+    const nextWorkspace = await getOfferWorkspace(targetOfferId);
+    setWorkspace(nextWorkspace);
+
+    setSelectedOfferId((previousSelectedOfferId) => {
+      const hasSelectedOffer = nextWorkspace.offers.some((item) => item.offer_id === previousSelectedOfferId);
+      if (hasSelectedOffer) {
+        return previousSelectedOfferId;
+      }
+
+      return nextWorkspace.offers[0]?.offer_id ?? targetOfferId;
+    });
+
+    const nextContractorId = nextWorkspace.offer.contractor_user_id;
+    if (!nextContractorId) {
+      setContractorInfo(null);
+      return;
+    }
+
+    if (contractorInfoRef.current?.user_id === nextContractorId) {
+      return;
+    }
+
+    try {
+      const contractor = await getOfferContractorInfo(nextContractorId);
+      setContractorInfo(contractor);
+    } catch {
+      setContractorInfo(null);
+    }
+  }, []);
+
+  useEffect(() => {
+    contractorInfoRef.current = contractorInfo;
+  }, [contractorInfo]);
+
   useEffect(() => {
     void loadWorkspace();
   }, [loadWorkspace]);
@@ -227,12 +266,19 @@ export const OfferWorkspacePage = () => {
       return;
     }
 
-    const interval = window.setInterval(() => {
-      void loadMessages(selectedOfferId).catch(() => undefined);
-    }, 7000);
+    const syncWorkspaceData = async () => {
+      await refreshWorkspace(selectedOfferId);
+      await loadMessages(selectedOfferId);
+    };
 
-    return () => window.clearInterval(interval);
-  }, [loadMessages, selectedOfferId]);
+    void syncWorkspaceData().catch(() => undefined);
+
+    const interval = window.setInterval(() => {
+      void syncWorkspaceData().catch(() => undefined);
+    }, Math.min(workspacePollIntervalMs, messagesPollIntervalMs));
+
+  return () => window.clearInterval(interval);
+  }, [loadMessages, refreshWorkspace, selectedOfferId]);
 
   useEffect(() => {
     if (!selectedOfferId) {
@@ -356,8 +402,7 @@ export const OfferWorkspacePage = () => {
     setErrorMessage(null);
     try {
       await uploadOfferFile(selectedOffer.offer_id, file);
-      const nextWorkspace = await getOfferWorkspace(selectedOffer.offer_id);
-      setWorkspace(nextWorkspace);
+      await refreshWorkspace(selectedOffer.offer_id);
     } catch (error) {
       setErrorMessage(error instanceof Error ? error.message : 'Не удалось загрузить файл');
     } finally {
@@ -373,8 +418,7 @@ export const OfferWorkspacePage = () => {
     setErrorMessage(null);
     try {
       await deleteOfferFile(selectedOffer.offer_id, fileId);
-      const nextWorkspace = await getOfferWorkspace(selectedOffer.offer_id);
-      setWorkspace(nextWorkspace);
+      await refreshWorkspace(selectedOffer.offer_id);
     } catch (error) {
       setErrorMessage(error instanceof Error ? error.message : 'Не удалось удалить файл');
     }
@@ -442,6 +486,7 @@ export const OfferWorkspacePage = () => {
           }
           : prev
       );
+      await refreshWorkspace(selectedOffer.offer_id);
     } catch (error) {
       setOfferDecisionStatus(previousStatus);
       setErrorMessage(error instanceof Error ? error.message : 'Не удалось обновить статус оффера');
@@ -479,6 +524,7 @@ export const OfferWorkspacePage = () => {
           }
           : prev
       );
+      await refreshWorkspace(selectedOffer.offer_id);
     } catch (error) {
       setErrorMessage(error instanceof Error ? error.message : 'Не удалось удалить отклик');
     } finally {
