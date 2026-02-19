@@ -10,6 +10,8 @@ import {
   IconButton,
   Paper,
   Stack,
+  Tab,
+  Tabs,
   SvgIcon,
   TextField,
   Typography
@@ -126,6 +128,10 @@ type OfferWorkspaceChatPanelProps = {
   onSendMessage: (text: string, files: File[]) => Promise<void>;
   onMessageInputClick: () => Promise<void> | void;
   onDownloadAttachment: (downloadUrl: string, name: string) => void;
+  chatItems?: Array<{ offerId: number; label: string; isReadOnly?: boolean }>;
+  activeOfferId?: number;
+  onSelectOffer?: (offerId: number) => void;
+  readOnlyNotice?: string | null;
 };
 
 export const OfferWorkspaceChatPanel = ({
@@ -139,7 +145,11 @@ export const OfferWorkspaceChatPanel = ({
   isSending,
   onSendMessage,
   onMessageInputClick,
-  onDownloadAttachment
+  onDownloadAttachment,
+  chatItems = [],
+  activeOfferId = offerId,
+  onSelectOffer,
+  readOnlyNotice
 }: OfferWorkspaceChatPanelProps) => {
   const {
     control,
@@ -205,6 +215,21 @@ export const OfferWorkspaceChatPanel = ({
             </IconButton>
           </Box>
           <Divider />
+
+          {chatItems.length > 1 ? (
+            <Box sx={{ px: 1.5, pt: 1 }}>
+              <Tabs
+                value={activeOfferId}
+                onChange={(_, nextOfferId: number) => onSelectOffer?.(nextOfferId)}
+                variant="scrollable"
+                scrollButtons="auto"
+              >
+                {chatItems.map((item) => (
+                  <Tab key={item.offerId} value={item.offerId} label={item.label} />
+                ))}
+              </Tabs>
+            </Box>
+          ) : null}
 
           <Stack spacing={1} sx={{ p: 2, height: '100%' }}>
             <Box
@@ -371,6 +396,10 @@ export const OfferWorkspaceChatPanel = ({
                 </Stack>
               )}
             </Box>
+
+            {readOnlyNotice ? (
+              <Typography variant="caption" color="text.secondary">{readOnlyNotice}</Typography>
+            ) : null}
 
             <Box component="form" onSubmit={handleSubmit(onSubmitMessage)}>
               <TextField

@@ -1,9 +1,13 @@
 import { fetchJson } from './client';
+import type { AuthLink } from './loginWebUser';
 
 type ApiResponse = {
   data: {
     offer_id: number;
     request_id: number;
+  };
+  _links?: {
+    self?: AuthLink;
   };
 };
 
@@ -13,11 +17,11 @@ export type CreatedOffer = {
   workspacePath: string;
 };
 
-export const createOfferForRequest = async (requestId: number): Promise<CreatedOffer> => {
+export const createOfferForRequest = async (requestId: number, action?: AuthLink): Promise<CreatedOffer> => {
   const response = await fetchJson<ApiResponse>(
-    `/api/v1/requests/${requestId}/offers`,
+    action?.href ?? `/api/v1/requests/${requestId}/offers`,
     {
-      method: 'POST',
+      method: action?.method ?? 'POST',
       body: JSON.stringify({})
     },
     'Не удалось создать отклик'

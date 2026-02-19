@@ -18,6 +18,7 @@ import { DataTable } from '@shared/components/DataTable';
 import { downloadFile } from '@shared/api/fileDownload';
 import { getOfferWorkspace } from '@shared/api/getOfferWorkspace';
 import type { OfferWorkspace } from '@shared/api/getOfferWorkspace';
+import { createOfferForRequest } from '@shared/api/createOfferForRequest';
 import {
   deleteOfferFile,
   getOfferMessages,
@@ -30,7 +31,7 @@ import {
 import type { OfferWorkspaceMessage } from '@shared/api/offerWorkspaceActions';
 import { getOfferContractorInfo } from '@shared/api/getOfferContractorInfo';
 import type { OfferContractorInfo } from '@shared/api/getOfferContractorInfo';
-import { hasAvailableAction } from '@shared/auth/availableActions';
+import { findAvailableAction, hasAvailableAction } from '@shared/auth/availableActions';
 import type { AuthLink } from '@shared/api/loginWebUser';
 import { updateOfferStatus } from '@shared/api/updateOfferStatus';
 import { OfferWorkspaceChatPanel } from '@features/requests/components/OfferWorkspaceChatPanel';
@@ -135,6 +136,7 @@ export const OfferWorkspacePage = () => {
   const [workspace, setWorkspace] = useState<OfferWorkspace | null>(null);
   const [contractorInfo, setContractorInfo] = useState<OfferContractorInfo | null>(null);
   const [messages, setMessages] = useState<OfferWorkspaceMessage[]>([]);
+  const [selectedOfferId, setSelectedOfferId] = useState<number>(offerId);
   const [chatActions, setChatActions] = useState<AuthLink[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [isSending, setIsSending] = useState(false);
@@ -145,8 +147,8 @@ export const OfferWorkspacePage = () => {
   const [offerDecisionStatus, setOfferDecisionStatus] = useState<'accepted' | 'rejected' | ''>('');
 
   const loadMessages = useCallback(
-    async (syncStatuses = true) => {
-      const messagesResponse = await getOfferMessages(offerId);
+    async (targetOfferId: number, syncStatuses = true) => {
+      const messagesResponse = await getOfferMessages(targetOfferId);
       setMessages(messagesResponse.items);
       setChatActions(messagesResponse.availableActions);
 
@@ -156,7 +158,7 @@ export const OfferWorkspacePage = () => {
 
       const canSetReceived = hasAvailableAction(
         { availableActions: messagesResponse.availableActions },
-        `/api/v1/offers/${offerId}/messages/received`,
+        `/api/v1/offers/${targetOfferId}/messages/received`,
         'PATCH'
       );
 
@@ -166,17 +168,17 @@ export const OfferWorkspacePage = () => {
 
       let hasStatusUpdates = false;
       if (canSetReceived && incomingSendIds.length > 0) {
-        await markOfferMessagesReceived(offerId, incomingSendIds);
+        await markOfferMessagesReceived(targetOfferId, incomingSendIds);
         hasStatusUpdates = true;
       }
 
       if (hasStatusUpdates) {
-        const refreshed = await getOfferMessages(offerId);
+        const refreshed = await getOfferMessages(targetOfferId);
         setMessages(refreshed.items);
         setChatActions(refreshed.availableActions);
       }
     },
-    [offerId, session?.login]
+    [session?.login]
   );
 
   const loadWorkspace = useCallback(async () => {
@@ -190,7 +192,14 @@ export const OfferWorkspacePage = () => {
     try {
       const workspaceResponse = await getOfferWorkspace(offerId);
       setWorkspace(workspaceResponse);
-      await loadMessages();
+
+      const sortedOffers = [...workspaceResponse.offers].sort(
+        (left, right) => new Date(right.created_at ?? 0).getTime() - new Date(left.created_at ?? 0).getTime()
+      );
+      const initialOfferId = sortedOffers.find((item) => item.offer_id === offerId)?.offer_id ?? sortedOffers[0]?.offer_id ?? offerId;
+      setSelectedOfferId(initialOfferId);
+      await loadMessages(initialOfferId);
+
       if (workspaceResponse.offer.contractor_user_id) {
         try {
           const contractor = await getOfferContractorInfo(workspaceResponse.offer.contractor_user_id);
@@ -210,72 +219,108 @@ export const OfferWorkspacePage = () => {
 
   useEffect(() => {
     void loadWorkspace();
+    }, [loadWorkspace]);
+
+  useEffect(() => {
+    if (!selectedOfferId) {
+      return;
+    }
 
     const interval = window.setInterval(() => {
-      void loadMessages().catch(() => undefined);
+      void loadMessages(selectedOfferId).catch(() => undefined);
     }, 7000);
 
     return () => window.clearInterval(interval);
-  }, [loadMessages, loadWorkspace]);
+  }, [loadMessages, selectedOfferId]);
+
+  useEffect(() => {
+    if (!selectedOfferId) {
+      return;
+    }
+
+    void loadMessages(selectedOfferId).catch(() => undefined);
+  }, [loadMessages, selectedOfferId]);
 
   const availableActions = useMemo(() => {
     if (chatActions.length > 0) {
       return chatActions;
     }
 
+    const currentOfferActions = (workspace?.offers ?? []).find((item) => item.offer_id === selectedOfferId)?.availableActions;
+    if (currentOfferActions && currentOfferActions.length > 0) {
+      return currentOfferActions;
+    }
+
     return workspace?.availableActions ?? [];
-  }, [chatActions, workspace?.availableActions]);
+  }, [chatActions, selectedOfferId, workspace?.availableActions, workspace?.offers]);
+
+
+  const sortedOffers = useMemo(
+    () =>
+      [...(workspace?.offers ?? [])].sort(
+        (left, right) => new Date(right.created_at ?? 0).getTime() - new Date(left.created_at ?? 0).getTime()
+      ),
+    [workspace?.offers]
+  );
+
+  const selectedOffer = useMemo(
+    () => sortedOffers.find((item) => item.offer_id === selectedOfferId) ?? sortedOffers[0] ?? workspace?.offer ?? null,
+    [selectedOfferId, sortedOffers, workspace?.offer]
+  );
 
   const statusConfig = useMemo(
     () => statusOptions.find((item) => item.value === workspace?.request.status) ?? statusOptions[0],
     [workspace?.request.status]
   );
 
-  const offerStatusBadgeStyle = useMemo(() => getOfferStatusBadgeStyle(workspace?.offer.status ?? null), [workspace?.offer.status]);
   const isContractor = session?.roleId === 5;
   const isEconomist = session?.roleId === 1 || session?.roleId === 3 || session?.roleId === 4;
 
   const canUpload = useMemo(
-    () => hasAvailableAction({ availableActions }, `/api/v1/offers/${offerId}/files`, 'POST'),
-    [availableActions, offerId]
+    () => hasAvailableAction({ availableActions }, `/api/v1/offers/${selectedOfferId}/files`, 'POST'),
+    [availableActions, selectedOfferId]
   );
   const canDeleteFile = useMemo(
     () =>
-      hasAvailableAction({ availableActions }, `/api/v1/offers/${offerId}/files/{file_id}`, 'DELETE') ||
-      hasAvailableAction({ availableActions }, `/api/v1/offers/${offerId}/files/1`, 'DELETE'),
-    [availableActions, offerId]
+      hasAvailableAction({ availableActions }, `/api/v1/offers/${selectedOfferId}/files/{file_id}`, 'DELETE') ||
+      hasAvailableAction({ availableActions }, `/api/v1/offers/${selectedOfferId}/files/1`, 'DELETE'),
+    [availableActions, selectedOfferId]
   );
   const canSendMessage = useMemo(
-    () => hasAvailableAction({ availableActions }, `/api/v1/offers/${offerId}/messages`, 'POST'),
-    [availableActions, offerId]
+    () => hasAvailableAction({ availableActions }, `/api/v1/offers/${selectedOfferId}/messages`, 'POST'),
+    [availableActions, selectedOfferId]
   );
   const canSendMessageWithAttachments = useMemo(
     () =>
-      hasAvailableAction({ availableActions }, `/api/v1/offers/${offerId}/messages/attachments`, 'POST') || canSendMessage,
-    [availableActions, canSendMessage, offerId]
+      hasAvailableAction({ availableActions }, `/api/v1/offers/${selectedOfferId}/messages/attachments`, 'POST') || canSendMessage,
+    [availableActions, canSendMessage, selectedOfferId]
   );
   const canSetReadMessages = useMemo(
-    () => hasAvailableAction({ availableActions }, `/api/v1/offers/${offerId}/messages/read`, 'PATCH'),
-    [availableActions, offerId]
+    () => hasAvailableAction({ availableActions }, `/api/v1/offers/${selectedOfferId}/messages/read`, 'PATCH'),
+    [availableActions, selectedOfferId]
+  );
+  const canSetReceivedMessages = useMemo(
+    () => hasAvailableAction({ availableActions }, `/api/v1/offers/${selectedOfferId}/messages/received`, 'PATCH'),
+    [availableActions, selectedOfferId]
   );
   const canEditOfferStatus = useMemo(
     () => session?.roleId === 1 || session?.roleId === 3 || session?.roleId === 4,
     [session?.roleId]
   );
   const canDeleteOwnOffer = useMemo(
-    () => hasAvailableAction({ availableActions }, `/api/v1/offers/${offerId}/status`, 'PATCH'),
-    [availableActions, offerId]
+    () => hasAvailableAction({ availableActions }, `/api/v1/offers/${selectedOfferId}/status`, 'PATCH'),
+    [availableActions, selectedOfferId]
   );
 
   useEffect(() => {
-    const next = workspace?.offer.status;
+    const next = selectedOffer?.status;
     if (next === 'accepted' || next === 'rejected') {
       setOfferDecisionStatus(next);
       return;
     }
 
     setOfferDecisionStatus('');
-  }, [workspace?.offer.status]);
+  }, [selectedOffer?.status]);
 
   const detailsRows = [
     { id: 'created', label: 'Создана', value: formatDate(workspace?.request.created_at ?? null) },
@@ -297,15 +342,15 @@ export const OfferWorkspacePage = () => {
   const handleUpload = async (event: ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
     event.target.value = '';
-    if (!file || !workspace) {
+    if (!file || !workspace || !selectedOffer) {
       return;
     }
 
     setIsUploading(true);
     setErrorMessage(null);
     try {
-      await uploadOfferFile(offerId, file);
-      const nextWorkspace = await getOfferWorkspace(offerId);
+      await uploadOfferFile(selectedOffer.offer_id, file);
+      const nextWorkspace = await getOfferWorkspace(selectedOffer.offer_id);
       setWorkspace(nextWorkspace);
     } catch (error) {
       setErrorMessage(error instanceof Error ? error.message : 'Не удалось загрузить файл');
@@ -321,8 +366,8 @@ export const OfferWorkspacePage = () => {
 
     setErrorMessage(null);
     try {
-      await deleteOfferFile(offerId, fileId);
-      const nextWorkspace = await getOfferWorkspace(offerId);
+      await deleteOfferFile(selectedOffer.offer_id, fileId);
+      const nextWorkspace = await getOfferWorkspace(selectedOffer.offer_id);
       setWorkspace(nextWorkspace);
     } catch (error) {
       setErrorMessage(error instanceof Error ? error.message : 'Не удалось удалить файл');
@@ -330,7 +375,7 @@ export const OfferWorkspacePage = () => {
   };
 
   const handleSendMessage = async (text: string, files: File[]) => {
-    if (!canSendMessage) {
+    if (!canSendMessage || !selectedOffer) {
       return;
     }
 
@@ -341,11 +386,11 @@ export const OfferWorkspacePage = () => {
         if (!canSendMessageWithAttachments) {
           throw new Error('Отправка вложений недоступна для текущего пользователя');
         }
-        await sendOfferMessageWithAttachments(offerId, text, files);
+        await sendOfferMessageWithAttachments(selectedOffer.offer_id, text, files);
       } else {
-        await sendOfferMessage(offerId, text);
+        await sendOfferMessage(selectedOffer.offer_id, text);
       }
-      await loadMessages(false);
+      await loadMessages(selectedOffer.offer_id, false);
     } catch (error) {
       setErrorMessage(error instanceof Error ? error.message : 'Не удалось отправить сообщение');
     } finally {
@@ -354,7 +399,7 @@ export const OfferWorkspacePage = () => {
   };
 
   const handleOfferStatusChange = async (nextStatus: 'accepted' | 'rejected' | '') => {
-    if (!workspace || !nextStatus || !session?.login) {
+    if (!workspace || !selectedOffer || !nextStatus || !session?.login) {
       setOfferDecisionStatus(nextStatus); 
       return;
     }
@@ -366,7 +411,7 @@ export const OfferWorkspacePage = () => {
 
     try {
       const response = await updateOfferStatus({
-        offer_id: offerId,
+        offer_id: selectedOffer.offer_id,
         status: nextStatus
       });
 
@@ -374,11 +419,11 @@ export const OfferWorkspacePage = () => {
         prev
           ? {
             ...prev,
-            offer: {
-              ...prev.offer,
-              status: response.offer.status
+              offer: prev.offer.offer_id === selectedOffer.offer_id ? { ...prev.offer, status: response.offer.status } : prev.offer,
+              offers: prev.offers.map((item) =>
+                item.offer_id === selectedOffer.offer_id ? { ...item, status: response.offer.status } : item
+              )
             }
-          }
           : prev
       );
     } catch (error) {
@@ -390,7 +435,7 @@ export const OfferWorkspacePage = () => {
   };
 
   const handleDeleteOffer = async () => {
-    if (!workspace || workspace.offer.status === 'deleted') {
+    if (!workspace || !selectedOffer || selectedOffer.status === 'deleted') {
       return;
     }
 
@@ -403,7 +448,7 @@ export const OfferWorkspacePage = () => {
     setIsUpdatingOfferStatus(true);
     try {
       const response = await updateOfferStatus({
-        offer_id: offerId,
+        offer_id: selectedOffer.offer_id,
         status: 'deleted'
       });
 
@@ -411,11 +456,11 @@ export const OfferWorkspacePage = () => {
         prev
           ? {
             ...prev,
-            offer: {
-              ...prev.offer,
-              status: response.offer.status
+              offer: prev.offer.offer_id === selectedOffer.offer_id ? { ...prev.offer, status: response.offer.status } : prev.offer,
+              offers: prev.offers.map((item) =>
+                item.offer_id === selectedOffer.offer_id ? { ...item, status: response.offer.status } : item
+              )
             }
-          }
           : prev
       );
     } catch (error) {
@@ -426,7 +471,7 @@ export const OfferWorkspacePage = () => {
   };
 
   const handleMessageInputClick = async () => {
-    if (!canSetReadMessages || !session?.login || messages.length === 0) {
+    if (!canSetReadMessages || !session?.login || messages.length === 0 || !selectedOffer) {
       return;
     }
 
@@ -444,17 +489,65 @@ export const OfferWorkspacePage = () => {
 
     try {
       if (incomingSendIds.length > 0) {
-        await markOfferMessagesReceived(offerId, incomingSendIds);
+        await markOfferMessagesReceived(selectedOffer.offer_id, incomingSendIds);
       }
 
       const readIds = [...incomingReceivedIds, ...incomingSendIds];
       if (readIds.length > 0) {
-        await markOfferMessagesRead(offerId, readIds);
+        await markOfferMessagesRead(selectedOffer.offer_id, readIds);
       }
 
-      await loadMessages(false);
+      await loadMessages(selectedOffer.offer_id, false);
     } catch {
       // silent: keep typing flow uninterrupted
+    }
+  };
+
+  const createOfferAction = useMemo(() => {
+    const requestId = workspace?.request.request_id ?? 0;
+    const createOfferHref = `/api/v1/requests/${requestId}/offers`;
+
+    const actionSources = [
+      workspace?.availableActions ?? [],
+      selectedOffer?.availableActions ?? [],
+      ...(workspace?.offers ?? []).map((item) => item.availableActions ?? [])
+    ];
+
+    for (const source of actionSources) {
+      const action = findAvailableAction({ availableActions: source }, createOfferHref, 'POST');
+      if (action) {
+        return action;
+      }
+    }
+
+    return null;
+  }, [selectedOffer?.availableActions, workspace?.availableActions, workspace?.offers, workspace?.request.request_id]);
+
+  const canCreateNewOffer = Boolean(createOfferAction);
+
+  const handleCreateNewOffer = async () => {
+    if (!workspace) {
+      return;
+    }
+
+    const isConfirmed = window.confirm('Создать новый отклик для этой заявки? Предыдущие удаленные отклики останутся в истории.');
+    if (!isConfirmed) {
+      return;
+    }
+
+    setErrorMessage(null);
+    setIsUpdatingOfferStatus(true);
+    try {
+      const createdOffer = await createOfferForRequest(workspace.request.request_id, createOfferAction ?? undefined);
+      const refreshedWorkspace = await getOfferWorkspace(createdOffer.offerId);
+      setWorkspace(refreshedWorkspace);
+      setSelectedOfferId(createdOffer.offerId);
+      await loadMessages(createdOffer.offerId, false);
+      navigate(createdOffer.workspacePath, { replace: true });
+    } catch (error) {
+      setErrorMessage(error instanceof Error ? error.message : 'Не удалось создать новый отклик');
+    } finally {
+      setIsUpdatingOfferStatus(false);
     }
   };
 
@@ -463,7 +556,7 @@ export const OfferWorkspacePage = () => {
     return <Typography>Загрузка...</Typography>;
   }
 
-  if (!workspace) {
+  if (!workspace || !selectedOffer) {
     return <Typography color="text.secondary">Workspace оффера недоступен.</Typography>;
   }
 
@@ -619,103 +712,133 @@ export const OfferWorkspacePage = () => {
           </Stack>
         </Paper>
 
-        <Paper sx={{ mt: 2.5, p: 2, borderRadius: 3 }}>
-          <Stack direction={{ xs: 'column', sm: 'row' }} alignItems={{ xs: 'flex-start', sm: 'center' }} spacing={1} sx={{ mb: 1 }}>
-            <Typography variant="h6">Номер КП: {workspace.offer.offer_id}</Typography>
-            {isContractor ? (
-              <Chip
-                label={workspace.offer.status_label ?? workspace.offer.status}
-                size="small"
-                variant="outlined"
-                sx={{
-                  borderColor: offerStatusBadgeStyle.borderColor,
-                  color: offerStatusBadgeStyle.borderColor,
-                  backgroundColor: 'transparent',
-                  fontWeight: 600
-                }}
-              />
-            ) : (
-              <Box
-                sx={{
-                  width: 28,
-                  height: 28,
-                  borderRadius: 8,
-                  border: `1px solid ${offerStatusBadgeStyle.borderColor}`,
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  backgroundColor: 'transparent'
-                }}
-                aria-label={`status-${workspace.offer.status ?? 'unknown'}`}
-              >
-                {offerStatusBadgeStyle.icon}
-              </Box>
-            )}
-            {canEditOfferStatus ? (
-              <Select
-                size="small"
-                value={offerDecisionStatus}
-                displayEmpty
-                disabled={isUpdatingOfferStatus || workspace.offer.status === 'deleted'}
-                onChange={(event) => void handleOfferStatusChange(event.target.value as 'accepted' | 'rejected' | '')}
-                sx={{ minWidth: 170 }}
-              >
-                <MenuItem value="">
-                  <Typography variant="body2" color="text.secondary">
-                    Выберите статус
-                  </Typography>
-                </MenuItem>
-                {offerDecisionOptions.map((option) => (
-                  <MenuItem key={option.value} value={option.value}>
-                    {option.label}
-                  </MenuItem>
-                ))}
-              </Select>
-            ) : null}
-            {isContractor && canDeleteOwnOffer ? (
-              <Button
-                variant="outlined"
-                color="error"
-                size="small"
-                disabled={isUpdatingOfferStatus || workspace.offer.status === 'deleted'}
-                onClick={() => void handleDeleteOffer()}
-              >
-                {workspace.offer.status === 'deleted' ? 'Отклик удален' : 'Удалить отклик'}
-              </Button>
-            ) : null}
-          </Stack>
-          <Stack spacing={1} sx={{ mb: 1.5 }}>
-            <Typography variant="body2">Создана: {formatDate(workspace.offer.created_at)}</Typography>
-            <Typography variant="body2">Последнее изменение: {formatDate(workspace.offer.updated_at)}</Typography>
-          </Stack>
-
-          <Stack direction="row" flexWrap="wrap" gap={1}>
-            {workspace.offer.files.length === 0 ? (
-              <Typography color="text.secondary">Файлы оффера не прикреплены.</Typography>
-            ) : (
-              workspace.offer.files.map((file) => (
-                <Chip
-                  key={file.id}
-                  label={file.name}
-                  variant="outlined"
-                  onClick={() => void downloadFile(file.download_url, file.name)}
-                  onDelete={canDeleteFile ? () => void handleDeleteFile(file.id) : undefined}
-                />
-              ))
-            )}
-          </Stack>
-
-          <input ref={fileInputRef} type="file" hidden onChange={(event) => void handleUpload(event)} />
-          {canUpload ? (
-            <Button sx={{ mt: 1.5 }} variant="outlined" disabled={isUploading} onClick={() => fileInputRef.current?.click()}>
-              {isUploading ? 'Загрузка...' : 'Прикрепить файл'}
+        {isContractor && canCreateNewOffer ? (
+          <Stack direction="row" justifyContent="flex-end" sx={{ mt: 2.5 }}>
+            <Button variant="contained" disabled={isUpdatingOfferStatus} onClick={() => void handleCreateNewOffer()}>
+              Новый отклик
             </Button>
-          ) : null}
-        </Paper>
+          </Stack>
+        ) : null}
+
+          {sortedOffers.map((offerItem) => {
+          const isCurrent = offerItem.offer_id === selectedOffer.offer_id;
+          const itemBadgeStyle = getOfferStatusBadgeStyle(offerItem.status ?? null);
+          return (
+            <Paper
+              key={offerItem.offer_id}
+              sx={{
+                mt: 2.5,
+                p: 2,
+                borderRadius: 3,
+                border: isCurrent ? '2px solid' : '1px solid',
+                borderColor: isCurrent ? 'primary.main' : 'divider'
+              }}
+            >
+              <Stack direction={{ xs: 'column', sm: 'row' }} alignItems={{ xs: 'flex-start', sm: 'center' }} spacing={1} sx={{ mb: 1 }}>
+                <Typography variant="h6">Номер КП: {offerItem.offer_id}</Typography>
+                {isContractor ? (
+                  <Chip
+                    label={offerItem.status_label ?? offerItem.status}
+                    size="small"
+                    variant="outlined"
+                    sx={{
+                      borderColor: itemBadgeStyle.borderColor,
+                      color: itemBadgeStyle.borderColor,
+                      backgroundColor: 'transparent',
+                      fontWeight: 600
+                    }}
+                  />
+                ) : (
+                  <Box
+                    sx={{
+                      width: 28,
+                      height: 28,
+                      borderRadius: 8,
+                      border: `1px solid ${itemBadgeStyle.borderColor}`,
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      backgroundColor: 'transparent'
+                    }}
+                    aria-label={`status-${offerItem.status ?? 'unknown'}`}
+                  >
+                    {itemBadgeStyle.icon}
+                  </Box>
+                )}
+                <Button size="small" variant={isCurrent ? 'contained' : 'outlined'} onClick={() => setSelectedOfferId(offerItem.offer_id)}>
+                  {isCurrent ? 'Активный отклик' : 'Открыть в чате'}
+                </Button>
+                {canEditOfferStatus && isCurrent ? (
+                  <Select
+                    size="small"
+                    value={offerDecisionStatus}
+                    displayEmpty
+                    disabled={isUpdatingOfferStatus || offerItem.status === 'deleted'}
+                    onChange={(event) => void handleOfferStatusChange(event.target.value as 'accepted' | 'rejected' | '')}
+                    sx={{ minWidth: 170 }}
+                  >
+                    <MenuItem value="">
+                      <Typography variant="body2" color="text.secondary">
+                        Выберите статус
+                      </Typography>
+                    </MenuItem>
+                    {offerDecisionOptions.map((option) => (
+                      <MenuItem key={option.value} value={option.value}>
+                        {option.label}
+                      </MenuItem>
+                    ))}
+                  </Select>
+                ) : null}
+                {isContractor && canDeleteOwnOffer && isCurrent ? (
+                  <Button
+                    variant="outlined"
+                    color="error"
+                    size="small"
+                    disabled={isUpdatingOfferStatus || offerItem.status === 'deleted'}
+                    onClick={() => void handleDeleteOffer()}
+                  >
+                    {offerItem.status === 'deleted' ? 'Отклик удален' : 'Удалить отклик'}
+                  </Button>
+                ) : null}
+              </Stack>
+              <Stack spacing={1} sx={{ mb: 1.5 }}>
+                <Typography variant="body2">Создана: {formatDate(offerItem.created_at)}</Typography>
+                <Typography variant="body2">Последнее изменение: {formatDate(offerItem.updated_at)}</Typography>
+              </Stack>
+
+              <Stack direction="row" flexWrap="wrap" gap={1}>
+                {offerItem.files.length === 0 ? (
+                  <Typography color="text.secondary">Файлы оффера не прикреплены.</Typography>
+                ) : (
+                  offerItem.files.map((file) => (
+                    <Chip
+                      key={file.id}
+                      label={file.name}
+                      variant="outlined"
+                      onClick={() => void downloadFile(file.download_url, file.name)}
+                      onDelete={canDeleteFile && isCurrent ? () => void handleDeleteFile(file.id) : undefined}
+                    />
+                  ))
+                )}
+              </Stack>
+
+              {isCurrent ? <input ref={fileInputRef} type="file" hidden onChange={(event) => void handleUpload(event)} /> : null}
+              {canUpload && isCurrent ? (
+                <Button sx={{ mt: 1.5 }} variant="outlined" disabled={isUploading} onClick={() => fileInputRef.current?.click()}>
+                  {isUploading ? 'Загрузка...' : 'Прикрепить файл'}
+                </Button>
+              ) : null}
+            </Paper>
+          );
+        })}
       </Box>
 
       <OfferWorkspaceChatPanel
-        offerId={workspace.offer.offer_id}
+        offerId={selectedOffer.offer_id}
+        chatItems={sortedOffers.map((item) => ({ offerId: item.offer_id, label: `КП ${item.offer_id} · ${item.status_label}` }))}
+        activeOfferId={selectedOffer.offer_id}
+        onSelectOffer={setSelectedOfferId}
+        readOnlyNotice={!canSendMessage && !canSendMessageWithAttachments && !canSetReadMessages && !canSetReceivedMessages ? 'Чат удаленного оффера доступен только для просмотра.' : null}
         isOpen={isChatOpen}
         onToggleOpen={setIsChatOpen}
         messages={messages}

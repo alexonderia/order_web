@@ -3,6 +3,18 @@ import type { AuthLink } from './loginWebUser';
 import type { ContractorRequestViewFile } from './getContractorRequestView';
 import { resolveAvailableActions } from './mappers';
 
+export type WorkspaceOfferItem = {
+  offer_id: number;
+  contractor_user_id?: string;
+  status: string;
+  status_label: string;
+  created_at: string | null;
+  updated_at: string | null;
+  files: ContractorRequestViewFile[];
+  availableActions: AuthLink[];
+  selfHref?: string;
+};
+
 export type OfferWorkspace = {
   request: {
     request_id: number;
@@ -18,15 +30,8 @@ export type OfferWorkspace = {
     closed_at: string | null;
     files: ContractorRequestViewFile[];
   };
-  offer: {
-    offer_id: number;
-    contractor_user_id?: string;
-    status: string;
-    status_label: string;
-    created_at: string | null;
-    updated_at: string | null;
-    files: ContractorRequestViewFile[];
-  };
+  offer: WorkspaceOfferItem;
+  offers: WorkspaceOfferItem[];
   profile: {
     full_name: string;
     phone: string;
@@ -43,10 +48,21 @@ export type OfferWorkspace = {
   availableActions: AuthLink[];
 };
 
+type ApiOfferItem = Omit<WorkspaceOfferItem, 'availableActions' | 'selfHref' | 'files'> & {
+  files?: ContractorRequestViewFile[];
+  _links?: {
+    self?: AuthLink;
+    available_action?: AuthLink[];
+    available_actions?: AuthLink[];
+    availableActions?: AuthLink[];
+  };
+};
+
 type ApiResponse = {
   data: {
     request: OfferWorkspace['request'];
-    offer: OfferWorkspace['offer'];
+    offer: ApiOfferItem;
+    offers?: ApiOfferItem[];
     contractor?: {
       user_id: string;
       full_name: string | null;
@@ -67,6 +83,18 @@ type ApiResponse = {
   };
 };
 
+const mapOfferItem = (offer: ApiOfferItem, contractorUserId?: string): WorkspaceOfferItem => ({
+  offer_id: offer.offer_id,
+  contractor_user_id: contractorUserId,
+  status: offer.status,
+  status_label: offer.status_label,
+  created_at: offer.created_at,
+  updated_at: offer.updated_at,
+  files: offer.files ?? [],
+  availableActions: resolveAvailableActions(offer),
+  selfHref: offer._links?.self?.href
+});
+
 export const getOfferWorkspace = async (offerId: number): Promise<OfferWorkspace> => {
   const response = await fetchJson<ApiResponse>(
     `/api/v1/offers/${offerId}/workspace`,
@@ -75,17 +103,18 @@ export const getOfferWorkspace = async (offerId: number): Promise<OfferWorkspace
   );
 
   const availableActions = resolveAvailableActions(response);
+  const contractorUserId = response.data.contractor?.user_id;
+
+  const normalizedCurrentOffer = mapOfferItem(response.data.offer, contractorUserId);
+  const normalizedOffers = (response.data.offers ?? []).map((offer) => mapOfferItem(offer, contractorUserId));
 
   return {
     request: {
       ...response.data.request,
       files: response.data.request.files ?? []
     },
-    offer: {
-      ...response.data.offer,
-      contractor_user_id: response.data.contractor?.user_id,
-      files: response.data.offer.files ?? []
-    },
+    offer: normalizedCurrentOffer,
+    offers: normalizedOffers.length > 0 ? normalizedOffers : [normalizedCurrentOffer],
     profile: response.data.contractor
       ? {
           full_name: response.data.contractor.full_name ?? '',

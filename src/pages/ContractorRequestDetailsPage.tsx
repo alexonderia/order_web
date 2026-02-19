@@ -69,8 +69,26 @@ export const ContractorRequestDetailsPage = () => {
         if (!isMounted) {
           return;
         }
-        if (response.existing_offer) {
-          navigate(`/offers/${response.existing_offer.offer_id}/workspace`, { replace: true });
+        const openWorkspaceAction = (response.availableActions ?? []).find((action) => {
+          if (action.method.toUpperCase() !== 'GET') {
+            return false;
+          }
+
+          const url = action.href.startsWith('http')
+            ? new URL(action.href)
+            : new URL(action.href, window.location.origin);
+          const pathname = url.pathname.endsWith('/') ? url.pathname.slice(0, -1) : url.pathname;
+          return /\/offers\/\d+\/workspace$/.test(pathname);
+        });
+
+        if (openWorkspaceAction) {
+          const url = openWorkspaceAction.href.startsWith('http')
+            ? new URL(openWorkspaceAction.href)
+            : new URL(openWorkspaceAction.href, window.location.origin);
+
+          const pathname = url.pathname.endsWith('/') ? url.pathname.slice(0, -1) : url.pathname;
+          const localWorkspacePath = pathname.replace(/^\/api\/v1/, '');
+          navigate(localWorkspacePath, { replace: true });
           return;
         }
         setRequest(response);

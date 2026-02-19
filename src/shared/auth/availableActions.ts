@@ -20,19 +20,27 @@ const normalizeHref = (href: string) => {
   return pathname || '/';
 };
 
+export const findAvailableAction  = (
+  session: SessionWithAvailableAction,
+  href: string,
+  method: string
+): AuthLink | null => {
+  const availableActions = session?.availableActions ?? [];
+  if (!availableActions.length) {
+    return null;
+  }
+
+  return (
+    availableActions.find(
+      (availableAction) =>
+        normalizeHref(availableAction.href) === normalizeHref(href) &&
+        normalizeMethod(availableAction.method) === normalizeMethod(method)
+    ) ?? null
+  );
+};
+
 export const hasAvailableAction = (
   session: SessionWithAvailableAction,
   href: string,
   method: string
-): boolean => {
-  const availableActions = session?.availableActions ?? [];
-  if (!availableActions.length) {
-    return false;
-  }
-
-  return availableActions.some(
-    (availableAction) =>
-      normalizeHref(availableAction.href) === normalizeHref(href) &&
-      normalizeMethod(availableAction.method) === normalizeMethod(method)
-  );
-};
+): boolean => Boolean(findAvailableAction(session, href, method));
