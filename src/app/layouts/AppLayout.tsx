@@ -75,7 +75,8 @@ export const AppLayout = () => {
     return (
       <Box
         sx={{
-          minHeight: '100vh',
+          minHeight: { xs: 420, lg: '100%' },
+          height: { lg: '100%' },
           backgroundColor: 'background.default',
           display: 'grid',
           gridTemplateColumns: { xs: '1fr', lg: '280px minmax(0, 1fr)' },

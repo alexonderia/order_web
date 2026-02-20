@@ -29,5 +29,6 @@ export const mapRequestEntityToSummary = (item: RequestEntity): RequestWithOffer
   count_accepted_total: item.stats?.count_accepted_total ?? 0,
   count_rejected_total: item.stats?.count_rejected_total ?? 0,
   count_chat_alert: item.stats?.count_chat_alert ?? 0,
+  unread_messages_count: item.unread_messages_count ?? 0,
   files: item.files
 });

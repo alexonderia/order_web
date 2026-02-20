@@ -7,7 +7,7 @@ export type RequestFile = FileEntity;
 export type ContractorRequestOffer = {
   id: number;
   status: string;
-  unread_messages_count: number;
+  unread_messages_count?: number;
 };
 
 export type RequestWithOfferStats = {
@@ -26,6 +26,7 @@ export type RequestWithOfferStats = {
   count_accepted_total?: number;
   count_rejected_total?: number;
   count_chat_alert?: number;
+  unread_messages_count?: number;
   files: RequestFile[];
   offers?: ContractorRequestOffer[];
 };

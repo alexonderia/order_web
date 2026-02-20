@@ -30,6 +30,7 @@ export type RequestEntity = {
   closed_at: string | null;
   owner_user_id: string;
   chosen_offer_id: EntityId | null;
+  unread_messages_count?: number;
   stats?: RequestStats;
   files: FileEntity[];
 };

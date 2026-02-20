@@ -23,7 +23,7 @@ type ApiResponse = {
       owner_user_id: string;
       chosen_offer_id: number | null;
       files: FileEntity[];
-      offers: ContractorRequestOffer[];
+      offers: ApiContractorRequestOffer[];
     }>;
   };
 };

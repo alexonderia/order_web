@@ -1,4 +1,4 @@
-import { Chip, MenuItem, Select, Stack, Typography } from '@mui/material';
+import { Box, Chip, MenuItem, Select, Stack, SvgIcon, Typography } from '@mui/material';
 import { alpha, useTheme } from '@mui/material/styles';
 import type { RequestWithOfferStats } from '@shared/api/getRequests';
 import { DataTable } from '@shared/components/DataTable';
@@ -100,134 +100,70 @@ const NotificationContent = ({
     countSubmitted,
     countDeleted,
     countChatAlerts,
+    unreadMessagesCount,
     submittedColor,
     deletedColor
 }: {
     countSubmitted: number;
     countDeleted: number;
     countChatAlerts: number;
+    unreadMessagesCount: number;
     submittedColor: string;
     deletedColor: string;
 }) => {
-    if (countSubmitted <= 0 && countDeleted <= 0 && countChatAlerts <= 0) {
+    const hasUnreadMessages = unreadMessagesCount > 0;
+
+    if (countSubmitted <= 0 && countDeleted <= 0 && countChatAlerts <= 0 && !hasUnreadMessages) {
         return null;
     }
 
-    if (countSubmitted > 0 && countDeleted > 0 && countChatAlerts > 0) {
-        return (
-            <Stack direction="row" spacing={1} alignItems="center" flexWrap="wrap">
-                <Chip
-                    label={countSubmitted}
-                    size="small"
-                    variant="outlined"
-                    sx={{ borderColor: submittedColor, color: submittedColor, fontWeight: 600 }}
-                />
-                <Chip
-                    label={countDeleted}
-                    size="small"
-                    variant="outlined"
-                    sx={{ borderColor: deletedColor, color: deletedColor, fontWeight: 600 }}
-                />
-                <Chip
-                    label="Новый ответ"
-                    size="small"
-                    variant="outlined"
-                    sx={{ borderColor: '#d32f2f', color: '#d32f2f', fontWeight: 600 }}
-                />
-            </Stack>
-        );
-    }
-
-    if (countSubmitted > 0 && countDeleted > 0) {
-        return (
-            <Stack direction="row" spacing={1} alignItems="center" flexWrap="wrap">
-                <Chip
-                    label={countSubmitted}
-                    size="small"
-                    variant="outlined"
-                    sx={{ borderColor: submittedColor, color: submittedColor, fontWeight: 600 }}
-                />
-                <Chip
-                    label={countDeleted}
-                    size="small"
-                    variant="outlined"
-                    sx={{ borderColor: deletedColor, color: deletedColor, fontWeight: 600 }}
-                />
-            </Stack>
-        );
-    }
-
-    if (countSubmitted > 0 && countChatAlerts > 0) {
-        const label = countSubmitted === 1 ? 'Новое предложение' : `${countSubmitted} новых предложения`;
-        return (
-            <Stack direction="row" spacing={1} alignItems="center" flexWrap="wrap">
-                <Chip
-                    label={label}
-                    size="small"
-                    variant="outlined"
-                    sx={{ borderColor: submittedColor, color: submittedColor, fontWeight: 600 }}
-                />
-                <Chip
-                    label="Новый ответ"
-                    size="small"
-                    variant="outlined"
-                    sx={{ borderColor: '#d32f2f', color: '#d32f2f', fontWeight: 600 }}
-                />
-            </Stack>
-        );
-    }
-
-    if (countDeleted > 0 && countChatAlerts > 0) {
-        const label = countDeleted === 1 ? 'Отмена сделки' : `${countDeleted} отмены сделки`;
-        return (
-            <Stack direction="row" spacing={1} alignItems="center" flexWrap="wrap">
-                <Chip
-                    label={label}
-                    size="small"
-                    variant="outlined"
-                    sx={{ borderColor: deletedColor, color: deletedColor, fontWeight: 600 }}
-                />
-                <Chip
-                    label="Новый ответ"
-                    size="small"
-                    variant="outlined"
-                    sx={{ borderColor: '#d32f2f', color: '#d32f2f', fontWeight: 600 }}
-                />
-            </Stack>
-        );
-    }
-
-    if (countSubmitted > 0) {
-        const label = countSubmitted === 1 ? 'Новое предложение' : `${countSubmitted} новых предложения`;
-        return (
-            <Chip
-                label={label}
-                size="small"
-                variant="outlined"
-                sx={{ borderColor: submittedColor, color: submittedColor, fontWeight: 600 }}
-            />
-        );
-    }
-
-    if (countChatAlerts > 0) {
-        return (
-            <Chip
-                label="Новый ответ"
-                size="small"
-                variant="outlined"
-                sx={{ borderColor: '#d32f2f', color: '#d32f2f', fontWeight: 600 }}
-            />
-        );
-    }
-
-    const label = countDeleted === 1 ? 'Отмена сделки' : `${countDeleted} отмены сделки`;
     return (
-        <Chip
-            label={label}
-            size="small"
-            variant="outlined"
-            sx={{ borderColor: deletedColor, color: deletedColor, fontWeight: 600 }}
-        />
+        <Stack direction="row" spacing={1} alignItems="center" flexWrap="wrap">
+            {countSubmitted > 0 ? (
+                <Chip
+                    label={countSubmitted === 1 ? 'Новое предложение' : `${countSubmitted} новых предложения`}
+                    size="small"
+                    variant="outlined"
+                    sx={{ borderColor: submittedColor, color: submittedColor, fontWeight: 600 }}
+                />
+            ) : null}
+            {countDeleted > 0 ? (
+                <Chip
+                    label={countDeleted === 1 ? 'Отмена сделки' : `${countDeleted} отмены сделки`}
+                    size="small"
+                    variant="outlined"
+                    sx={{ borderColor: deletedColor, color: deletedColor, fontWeight: 600 }}
+                />
+            ) : null}
+            {countChatAlerts > 0 ? (
+                <Chip
+                    label="Новый ответ"
+                    size="small"
+                    variant="outlined"
+                    sx={{ borderColor: '#d32f2f', color: '#d32f2f', fontWeight: 600 }}
+                />
+            ) : null}
+            {hasUnreadMessages ? (
+                <Box
+                    sx={{
+                        width: 28,
+                        height: 28,
+                        borderRadius: '50%',
+                        border: (theme) => `1px solid ${theme.palette.primary.main}`,
+                        color: 'primary.main',
+                        display: 'inline-flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        backgroundColor: 'background.paper'
+                    }}
+                    title={getUnreadMessagesLabel(unreadMessagesCount) ?? undefined}
+                >
+                    <SvgIcon sx={{ fontSize: 16 }}>
+                        <path d="M20 4H4C2.9 4 2.01 4.9 2.01 6L2 18C2 19.1 2.9 20 4 20H20C21.1 20 22 19.1 22 18V6C22 4.9 21.1 4 20 4ZM20 8L12 13L4 8V6L12 11L20 6V8Z" />
+                    </SvgIcon>
+                </Box>
+            ) : null}
+        </Stack>
     );
 };
 
@@ -342,6 +278,7 @@ export const RequestsTable = ({
                             countSubmitted={row.count_submitted ?? 0}
                             countDeleted={row.count_deleted_alert ?? 0}
                             countChatAlerts={chatAlertsMap?.[row.id] ?? row.count_chat_alert ?? 0}
+                            unreadMessagesCount={row.unread_messages_count ?? 0}
                             submittedColor={submittedColor}
                             deletedColor={deletedColor}
                         />
