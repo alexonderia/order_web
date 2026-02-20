@@ -271,6 +271,8 @@ export const OfferWorkspaceChatPanel = ({
                       isSameDay(new Date(prev.created_at ?? ''), new Date(item.created_at ?? ''))
                     );
 
+                    const senderName = item.user_full_name?.trim() || item.user_id;
+
                     return (
                       <Box key={item.id}>
                         {showDateDivider ? (
@@ -330,6 +332,21 @@ export const OfferWorkspaceChatPanel = ({
                               };
                             }}
                           >
+                            {!ownMessage && !isGroupedWithPrev ? (
+                              <Typography
+                                variant="caption"
+                                sx={{
+                                  display: 'block',
+                                  mb: 0.5,
+                                  fontWeight: 600,
+                                  color: 'text.secondary',
+                                  letterSpacing: 0.1
+                                }}
+                              >
+                                {senderName}
+                              </Typography>
+                            ) : null}
+                            
                             <Typography
                               variant="body1"
                               sx={{

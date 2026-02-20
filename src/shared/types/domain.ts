@@ -37,6 +37,7 @@ export type RequestEntity = {
 export type OfferMessageEntity = {
   id: EntityId;
   user_id: string;
+  user_full_name: string | null;
   text: string;
   created_at: string;
   updated_at: string;
