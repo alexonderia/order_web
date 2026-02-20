@@ -32,7 +32,8 @@ const defaultColumns = [
   { key: 'id', label: 'id', minWidth: 120, fraction: 1 },
   { key: 'password', label: 'password', minWidth: 180, fraction: 1.4 },
   { key: 'id_role', label: 'id_role', minWidth: 120, fraction: 1 },
-  { key: 'role', label: 'role', minWidth: 180, fraction: 1.4 }
+  { key: 'role', label: 'role', minWidth: 180, fraction: 1.4 },
+  { key: 'status', label: 'Статус профиля', minWidth: 170, fraction: 1.2 }
 ];
 
 const statusSchema = z.object({
@@ -56,6 +57,7 @@ type UserRow = {
   password: string;
   id_role: number;
   role: string;
+  status: StatusFormValues['user_status'];
 };
 
 const statusColorByValue: Record<string, { bg: string; text: string; border: string }> = {
@@ -159,6 +161,8 @@ const mapUserStatusToTgStatus = (status: StatusFormValues['user_status']) => {
   return 'disapproved';
 };
 
+const inlineStatusOptions: Array<StatusFormValues['user_status']> = ['review', 'active', 'inactive', 'blacklist'];
+
 const statusMemoText = `Связь статусов users и tg_users:
 
 1) users: review  → tg_users: review
@@ -185,6 +189,8 @@ export const UsersTable = ({
   const [selectedUser, setSelectedUser] = useState<UserListItem | null>(null);
   const [submitError, setSubmitError] = useState<string | null>(null);
   const [submitSuccess, setSubmitSuccess] = useState<string | null>(null);
+  const [inlineStatusError, setInlineStatusError] = useState<string | null>(null);
+  const [updatingUserId, setUpdatingUserId] = useState<string | null>(null);
 
   const {
     register,
@@ -212,7 +218,8 @@ export const UsersTable = ({
         id: user.user_id,
         password: '—',
         id_role: user.role_id,
-        role: getRoleLabel(user.role_id)
+        role: getRoleLabel(user.role_id),
+        status: (user.status as StatusFormValues['user_status']) ?? 'review'
       })),
     [getRoleLabel, users]
   );
@@ -234,22 +241,62 @@ export const UsersTable = ({
     }
   };
 
+  const handleInlineStatusChange = async (userId: string, nextStatus: StatusFormValues['user_status']) => {
+    setInlineStatusError(null);
+    setUpdatingUserId(userId);
+
+    try {
+      await updateUserStatus(userId, {
+        user_status: nextStatus,
+        tg_status: mapUserStatusToTgStatus(nextStatus)
+      });
+      await onStatusUpdated();
+    } catch (error) {
+      setInlineStatusError(error instanceof Error ? error.message : 'Не удалось обновить статус');
+    } finally {
+      setUpdatingUserId(null);
+    }
+  };
+
   if (!isContractorsTab) {
     return (
-      <DataTable
-        columns={defaultColumns}
-        rows={rows}
-        rowKey={(row) => row.id}
-        isLoading={isLoading}
-        emptyMessage={emptyMessage}
-        storageKey="users-table"
-        renderRow={(row) => [
-          <Typography variant="body2">{row.id}</Typography>,
-          <Typography variant="body2">{row.password}</Typography>,
-          <Typography variant="body2">{row.id_role}</Typography>,
-          <Typography variant="body2">{row.role}</Typography>
-        ]}
-      />
+      <Stack spacing={1.2}>
+        {inlineStatusError ? <Alert severity="error">{inlineStatusError}</Alert> : null}
+        <DataTable
+          columns={defaultColumns}
+          rows={rows}
+          rowKey={(row) => row.id}
+          isLoading={isLoading}
+          emptyMessage={emptyMessage}
+          storageKey="users-table"
+          renderRow={(row) => [
+            <Typography variant="body2">{row.id}</Typography>,
+            <Typography variant="body2">{row.password}</Typography>,
+            <Typography variant="body2">{row.id_role}</Typography>,
+            <Typography variant="body2">{row.role}</Typography>,
+            <TextField
+              select
+              size="small"
+              value={row.status}
+              disabled={!canUpdateStatus || updatingUserId === row.id}
+              onChange={(event) => {
+                const nextStatus = event.target.value as StatusFormValues['user_status'];
+                if (nextStatus === row.status) {
+                  return;
+                }
+                void handleInlineStatusChange(row.id, nextStatus);
+              }}
+              sx={{ minWidth: 140 }}
+            >
+              {inlineStatusOptions.map((status) => (
+                <MenuItem key={status} value={status}>
+                  {status}
+                </MenuItem>
+              ))}
+            </TextField>
+          ]}
+        />
+      </Stack>
     );
   }
 

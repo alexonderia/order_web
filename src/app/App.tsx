@@ -37,7 +37,7 @@ export const App = () => {
             <Route
               path="/admin"
               element={
-                <RoleRoute allowedRoles={[1]}>
+                <RoleRoute allowedRoles={[1, 3]}>
                   <AdminPage />
                 </RoleRoute>
               }

@@ -10,6 +10,7 @@ import {
   Typography
 } from '@mui/material';
 import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import { useForm } from 'react-hook-form';
 import { z } from 'zod';
 import { UsersTable } from '@features/admin/components/UsersTable';
@@ -84,23 +85,33 @@ const canPatchUserStatus = (href: string, method: string) => {
 
 export const AdminPage = () => {
   const { session } = useAuth();
+  const isLeadEconomist = session?.roleId === 3;
+  const [searchParams, setSearchParams] = useSearchParams();
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
-  const [activeTab, setActiveTab] = useState<UserTab>('contractors');
+  const [activeTab, setActiveTab] = useState<UserTab>(isLeadEconomist ? 'economists' : 'contractors');
   const [users, setUsers] = useState<UserListItem[]>([]);
   const [isLoadingUsers, setIsLoadingUsers] = useState(false);
   const [usersError, setUsersError] = useState<string | null>(null);
   const [canUpdateStatus, setCanUpdateStatus] = useState(false);
 
-  const roleOptions = useMemo(
-    () => [
+  const roleOptions = useMemo(() => {
+    if (isLeadEconomist) {
+      return [{ id: 4, label: roleLabelsById[4] }];
+    }
+
+    return [
       { id: 2, label: roleLabelsById[2] },
       { id: 3, label: roleLabelsById[3] },
       { id: 4, label: roleLabelsById[4] },
       { id: 5, label: roleLabelsById[5] }
-    ],
-    []
+    ];
+  }, [isLeadEconomist]);
+
+  const userTabs = useMemo(
+    () => (isLeadEconomist ? tabOptions.filter((tab) => tab.value === 'economists') : tabOptions),
+    [isLeadEconomist]
   );
 
   const getRoleLabel = useCallback((roleId: number) => roleLabelsById[roleId] ?? `Роль ${roleId}`, []);
@@ -121,6 +132,28 @@ export const AdminPage = () => {
       role_id: roleOptions[0]?.id ?? 2
     }
   });
+
+  useEffect(() => {
+    if (isLeadEconomist) {
+      setActiveTab('economists');
+    }
+  }, [isLeadEconomist]);
+
+  useEffect(() => {
+    if (!canCreateUser) {
+      return;
+    }
+
+    if (searchParams.get('create') === '1') {
+      setIsDialogOpen(true);
+      setSearchParams((prev) => {
+        const next = new URLSearchParams(prev);
+        next.delete('create');
+        return next;
+      }, { replace: true });
+    }
+  }, [canCreateUser, searchParams, setSearchParams]);
+
 
   const loadUsers = useCallback(async () => {
     setIsLoadingUsers(true);
@@ -147,6 +180,11 @@ export const AdminPage = () => {
 
   const handleClose = () => {
     setIsDialogOpen(false);
+    setSearchParams((prev) => {
+      const next = new URLSearchParams(prev);
+      next.delete('create');
+      return next;
+    }, { replace: true });
     setErrorMessage(null);
     setSuccessMessage(null);
     reset();
@@ -172,32 +210,34 @@ export const AdminPage = () => {
 
   return (
     <Stack spacing={2}>
-      <Stack direction={{ xs: 'column', lg: 'row' }} justifyContent="space-between" gap={2} alignItems="center">
-        <Stack direction={{ xs: 'column', sm: 'row' }} gap={1.5} sx={{ width: '100%' }}>
-          {tabOptions.map((tab) => (
-            <Button
-              key={tab.value}
-              variant="outlined"
-              onClick={() => setActiveTab(tab.value)}
-              sx={(theme) => ({
-                ...actionButtonSx,
-                backgroundColor: activeTab === tab.value ? theme.palette.primary.light : theme.palette.background.paper
-              })}
-            >
-              {tab.label}
+      {!isLeadEconomist ? (
+        <Stack direction={{ xs: 'column', lg: 'row' }} justifyContent="space-between" gap={2} alignItems="center">
+          <Stack direction={{ xs: 'column', sm: 'row' }} gap={1.5} sx={{ width: '100%' }}>
+            {userTabs.map((tab) => (
+              <Button
+                key={tab.value}
+                variant="outlined"
+                onClick={() => setActiveTab(tab.value)}
+                sx={(theme) => ({
+                  ...actionButtonSx,
+                  backgroundColor: activeTab === tab.value ? theme.palette.primary.light : theme.palette.background.paper
+                })}
+              >
+                {tab.label}
+              </Button>
+            ))}
+          </Stack>
+          {canCreateUser ? (
+            <Button variant="outlined" sx={actionButtonSx} onClick={() => setIsDialogOpen(true)}>
+              Добавить пользователя
             </Button>
-          ))}
+          ) : (
+            <Typography variant="body2" color="text.secondary">
+              Нет доступных действий для создания пользователей.
+            </Typography>
+          )}
         </Stack>
-        {canCreateUser ? (
-          <Button variant="outlined" sx={actionButtonSx} onClick={() => setIsDialogOpen(true)}>
-            Добавить
-          </Button>
-        ) : (
-          <Typography variant="body2" color="text.secondary">
-            Нет доступных действий для создания пользователей.
-          </Typography>
-        )}
-      </Stack>
+        ) : null}
 
       {usersError ? <Alert severity="error">{usersError}</Alert> : null}
 

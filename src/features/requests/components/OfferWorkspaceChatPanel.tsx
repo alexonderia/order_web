@@ -132,6 +132,7 @@ type OfferWorkspaceChatPanelProps = {
   activeOfferId?: number;
   onSelectOffer?: (offerId: number) => void;
   readOnlyNotice?: string | null;
+  contractorUserId?: string;
 };
 
 export const OfferWorkspaceChatPanel = ({
@@ -149,7 +150,8 @@ export const OfferWorkspaceChatPanel = ({
   chatItems = [],
   activeOfferId = offerId,
   onSelectOffer,
-  readOnlyNotice
+  readOnlyNotice,
+  contractorUserId
 }: OfferWorkspaceChatPanelProps) => {
   const {
     control,
@@ -253,6 +255,7 @@ export const OfferWorkspaceChatPanel = ({
                 <Stack spacing={0} alignItems="stretch">
                   {sortedMessages.map((item, idx) => {
                     const ownMessage = item.user_id === sessionLogin;
+                    const isContractorMessage = Boolean(contractorUserId) && item.user_id === contractorUserId;
 
                     const prev = idx > 0 ? sortedMessages[idx - 1] : null;
 
@@ -321,29 +324,37 @@ export const OfferWorkspaceChatPanel = ({
 
                                 backgroundColor: ownMessage
                                   ? theme.palette.primary.main
-                                  : alpha(theme.palette.background.paper, 0.98),
+                                  : isContractorMessage
+                                    ? '#eaf4ff'
+                                    : alpha(theme.palette.background.paper, 0.98),
                                 color: ownMessage ? 'rgba(255,255,255,0.96)' : theme.palette.text.primary,
 
                                 boxShadow: ownMessage
                                   ? `0 6px 18px ${alpha(theme.palette.primary.main, 0.18)}`
                                   : '0 1px 4px rgba(0,0,0,0.06)',
 
+                                border: ownMessage
+                                  ? 'none'
+                                  : isContractorMessage
+                                    ? `1px solid ${alpha(theme.palette.primary.main, 0.16)}`
+                                    : 'none',
+
                                 overflowWrap: 'anywhere'
                               };
                             }}
                           >
-                            {!ownMessage && !isGroupedWithPrev ? (
+                            {!isGroupedWithPrev ? (
                               <Typography
                                 variant="caption"
                                 sx={{
                                   display: 'block',
                                   mb: 0.5,
                                   fontWeight: 600,
-                                  color: 'text.secondary',
+                                  color: ownMessage ? alpha('#fff', 0.9) : 'text.secondary',
                                   letterSpacing: 0.1
                                 }}
                               >
-                                {senderName}
+                                {ownMessage ? 'Я' : senderName}
                               </Typography>
                             ) : null}
                             

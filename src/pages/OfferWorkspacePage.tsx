@@ -915,6 +915,7 @@ export const OfferWorkspacePage = () => {
         onDownloadAttachment={(downloadUrl, name) => {
           void downloadFile(downloadUrl, name);
         }}
+        contractorUserId={selectedOffer.contractor_user_id}
       />
     </Stack>
   );

@@ -37,9 +37,15 @@ export const AppLayout = () => {
   const isOfferWorkspacePage = /^\/offers\/\d+\/workspace$/.test(location.pathname);
   const canCreateRequest = hasAvailableAction(session, '/api/v1/requests', 'POST');
   const isContractor = roleId === 5;
+  const isLeadEconomist = roleId === 3;
   const canLoadOpenRequests = hasAvailableAction(session, '/api/v1/requests/open', 'GET');
   const canLoadOfferedRequests = hasAvailableAction(session, '/api/v1/requests/offered', 'GET');
   const canUseContractorTabs = isContractor && isRequestsListPage && canLoadOpenRequests && canLoadOfferedRequests;
+  const canOpenUsersPage = hasAvailableAction(session, '/api/v1/users', 'GET');
+  const canRegisterUser = hasAvailableAction(session, '/api/v1/users/register', 'POST');
+  const isLeadRequestsTab = isLeadEconomist && location.pathname.startsWith('/requests');
+  const isLeadEconomistsTab = isLeadEconomist && location.pathname.startsWith('/admin');
+  const canUseLeadTabs = isLeadEconomist && canOpenUsersPage && (isLeadRequestsTab || isLeadEconomistsTab);
 
   const sidebarButtons = (
     <Stack spacing={1.8}>
@@ -156,13 +162,42 @@ export const AppLayout = () => {
               <Tab value="my" label="Мои заявки" />
               <Tab value="open" label="Актуальные заявки" />
             </Tabs>
+          ) : canUseLeadTabs ? (
+            <Stack direction="row" spacing={1.5} alignItems="center">
+              <Tabs
+                value={location.pathname === '/admin' ? 'economists' : 'requests'}
+                onChange={(_, value: 'economists' | 'requests') => {
+                  navigate(value === 'economists' ? '/admin' : '/requests');
+                }}
+              >
+                <Tab value="requests" label="Заявки" />
+                <Tab value="economists" label="Экономисты" />
+              </Tabs>
+              {(isLeadRequestsTab ? canCreateRequest : canRegisterUser) ? (
+                <Button
+                  variant="outlined"
+                  sx={{ px: 3, borderRadius: 999, textTransform: 'none', whiteSpace: 'nowrap' }}
+                  onClick={() => {
+                    if (isLeadRequestsTab) {
+                      navigate('/requests/create', { state: { backgroundLocation: location } });
+                      return;
+                    }
+                    navigate('/admin?create=1');
+                  }}
+                >
+                  {isLeadRequestsTab ? 'Создать заявку' : 'Добавить экономиста'}
+                </Button>
+              ) : null}
+            </Stack>
           ) : isRequestsListPage && canCreateRequest ? (
             <Button
               variant="contained"
               sx={{ px: 3, boxShadow: 'none', '&:hover': { boxShadow: 'none' } }}
-              onClick={() => navigate('/requests/create', { state: { backgroundLocation: location } })}
+              onClick={() => {
+                navigate('/requests/create', { state: { backgroundLocation: location } });
+              }}
             >
-              Создать заявку
+              {isLeadEconomist ? 'Добавить пользователя' : 'Создать заявку'}
             </Button>
           ) : (
             <Box />
